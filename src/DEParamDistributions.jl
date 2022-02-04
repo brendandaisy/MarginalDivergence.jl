@@ -3,7 +3,7 @@ module DEParamDistributions
 export AbstractODEParamDistribution
 export timespan, match_initial_values, match_parameters, random_vars, ode_problem, sample_ode_problem, sample_ode_problem!, update_ode_problem!
 export prior_predict
-export initial_values, parameters, SIRParamDistribution, odemodel, post_sample
+export initial_values, parameters, SIRParamDistribution
 
 using OrdinaryDiffEq
 using Distributions
@@ -26,7 +26,7 @@ ode_func(pdist::AbstractODEParamDistribution) = ode_func(typeof(pdist))
 function match_initial_values(pdist::AbstractODEParamDistribution, params)
     ret = Vector{eltype(params)}()
     for (k, v) ∈ properties(pdist)
-        if !(k ∈ initial_values(typeof(pdist)))
+        if !(k ∈ initial_values(pdist))
             continue
         end
         k ∈ keys(params) ? push!(ret, params[k]) : push!(ret, v)
@@ -37,7 +37,7 @@ end
 function match_parameters(pdist::AbstractODEParamDistribution, params)
     ret = Vector{eltype(params)}()
     for (k, v) ∈ properties(pdist)
-        if !(k ∈ parameters(typeof(pdist)))
+        if !(k ∈ parameters(pdist))
             continue
         end
         k ∈ keys(params) ? push!(ret, params[k]) : push!(ret, v)
@@ -97,8 +97,8 @@ end
 
 ## Include other methods for simulation and inference
 
-include("../epi-odes.jl")
-include("../prior-predict.jl")
-include("../posterior.jl")
+include("epi-odes.jl")
+include("prior-predict.jl")
+include("posterior.jl")
 
 end # module

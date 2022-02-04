@@ -1,0 +1,43 @@
+
+```julia; echo = false; results = "hidden"
+using Distributions
+using OrdinaryDiffEq
+using BenchmarkTools
+using Plots
+using DEParamDistributions
+```
+
+## Generate some data
+
+```julia
+ptrue = SIRParamDistribution(60., 0.4, 0.5, 0.1)
+pdist = SIRParamDistribution(60., 0.4, TruncatedNormal(1, 2, 0, 5), 0.1)
+prob = ode_problem(ptrue; save_idxs=1, saveat=5.)
+inf_curve = solve(prob, Tsit5()).u
+d = map(_->rand([5, 30, 100]), 1:length(inf_curve))
+lf(x) = DEParamDistributions.joint_poisson(d, x)
+y = rand(lf(inf_curve))
+```
+
+## "Inner loop" benchmarking
+
+Current implementation using $P(\theta)$ without premaking distributions
+
+```julia
+function preproc1(N)
+    rvs = random_vars(pdist)
+    pdraws = map(_->NamedTuple{keys(rvs)}(rand.(values(rvs))), 1:N)
+    sols = prior_predict(pdraws, pdist; saveat=5.)
+    pdraws, sols
+end
+
+function is_simple1(sols, pdraw; lf)
+    W = importance_weights(y, sols, lf)
+    (μ=importance_mean(W, pdraw), ess=importance_ess(W))
+end
+
+p, s = preproc1(1000)
+@btime is_simple1(1000)
+# @btime is_simple1(100_000)
+# @btime is_simple1(10_000_000)
+```

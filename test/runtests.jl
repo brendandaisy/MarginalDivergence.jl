@@ -1,8 +1,12 @@
-using Revise
-using Test, DEParamDistributions
+## Performance critical basic features
+
+using Test
 using Distributions
 using OrdinaryDiffEq
 using Turing
+
+
+using DEParamDistributions
 
 @testset "SIR's AbstractODEParamDistribution Interface" begin
     sir_pdist = SIRParamDistribution(30., Beta(1, 1), Normal(0.3, 0.01), 0.1)
@@ -16,19 +20,22 @@ using Turing
     @test match_parameters(sir_pdist, psamp) == [psamp[i] for i ∈ 5:7]
 end
 
-# @testset "Matching ODE Values" begin
-#     sir_pdist = SIRParamDistribution(30., Beta(1, 1), Normal(0.3, 0.01), 0.1)
-#     nt = (inf_rate = 0.2, rec_init = 0.2)
-#     rvs = random_vars(sir_pdist)
-#     rv_samp = NamedTuple{keys(rvs)}(rand.(values(rvs)))
-#     psamp = param_sample(sir_pdist)
-#     @test match_initial_values(sir_pdist, nt) == [0.01, 0.2]
-#     @test match_parameters(sir_pdist, nt) == [0.2, 0.1, 1.]
-#     @test keys(rv_samp) == (:rec_init, :inf_rate)
-#     @test eltype(rv_samp)<:Float64
-#     @test match_initial_values(sir_pdist, rv_samp) == [0.01, rv_samp[1]]
-#     @test match_parameters(sir_pdist, psamp) == [psamp[5], 0.1, 1.]
-# end
+@testset "Matching ODE Values" begin
+    sir_pdist = SIRParamDistribution(30., Beta(1, 1), Normal(0.3, 0.01), 0.1)
+    nt = (inf_rate = 0.2, rec_init = 0.2)
+    rvs = random_vars(sir_pdist)
+    rv_samp = NamedTuple{keys(rvs)}(rand.(values(rvs)))
+    psamp = param_sample(sir_pdist)
+    @test match_initial_values(sir_pdist, nt) == [0.01, 0.2]
+    @test match_parameters(sir_pdist, nt) == [0.2, 0.1, 1.]
+    @test keys(rv_samp) == (:rec_init, :inf_rate)
+    @test eltype(rv_samp) <: Float64
+    @test match_initial_values(sir_pdist, rv_samp) == [0.01, rv_samp[1]]
+    @test match_parameters(sir_pdist, psamp) == [psamp[5], 0.1, 1.]
+
+    ## handling odd matches
+    @test match_initial_values(sir_pdist, (rec_rate=1.,))
+end
  
 @testset "Constructing ODE Problems" begin
     sir_pdist = SIRParamDistribution(30., Beta(1, 1), Normal(0.3, 0.01), 0.1)
@@ -54,19 +61,24 @@ sir_pdist = SIRParamDistribution(30., Beta(1, 1), Normal(0.3, 0.01), 0.1)
 pp = prior_predict(sir_pdist, 100)
 @test length(pp) == 100
 @test size(pp[1].u) == (31,)
+@test map(x->all(x .≤ 1) & all(x .> 0), pp) |> all
 yhats = predict_yhat(pp, x->DEParamDistributions.joint_binom(10, x))
+@test map(x->all(x .≤ 10), yhats) |> all
 # scatter(yhats, lab="")
 
 pp = prior_predict(sir_pdist, 10, save_idxs=1:2, saveat=2)
 @test length(pp[1].u) == 16 && length(pp[1].u[1]) == 2
 # plot(pp)
 
-
+pp = prior_predict([(rec_init=0.5, inf_rate=0.3), (rec_init=0.2, inf_rate=0.4)], sir_pdist)
+@test sum(pp.u[1]) < sum(pp.u[2])
 
 ## Posterior tests
 
-@test rand.(DEParamDistributions.joint_binom([2, 3], [-.1, 1.])) == [0, 3]
-@test length(DEParamDistributions.joint_binom(1, [.5, .4])) == 2
+@test rand.(DEParamDistributions.array_binom([2, 3], [-.1, 1.])) == [0, 3]
+@test length(DEParamDistributions.array_binom(1, [.5, .4])) == 2
+DEParamDistributions.joint_binom(10, [0.5, 0.4])
+@test DEParamDistributions.logweight([0, 1], 0.5, x->DEParamDistributions.joint_binom([1, 1], x)) ≈ 2 * log(0.5)
 
 pdist = SIRParamDistribution(30., .3, TruncatedNormal(1, .5, .15, 1), TruncatedNormal(.1, .5, 0, .2))
 prob = sample_ode_problem(pdist; save_idxs=1, saveat=0:30)
