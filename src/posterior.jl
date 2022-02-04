@@ -140,7 +140,7 @@ function importance_weights(
     W / sum(W)
 end
 
-function importance_weights(data, gdraw; ldists::Vector{T}, pd, gd=pd) where T <: Distribution
+function importance_weights(data, gdraw; ldists::Vector{T}, pd::Distribution, gd=pd) where T <: Distribution
     ℓW = map(zip(gdraw, ldists)) do (θg, ld)
         logweight(data, θg, ld, pd, gd)
     end

@@ -21,7 +21,7 @@ y = rand(lf(inf_curve))
 
 ## "Inner loop" benchmarking
 
-Current implementation using $P(\theta)$ without premaking distributions
+Current implementation using $P(\theta)$ with and without premaking distributions
 
 ```julia
 function preproc1(N)
@@ -31,13 +31,64 @@ function preproc1(N)
     pdraws, sols
 end
 
-function is_simple1(sols, pdraw; lf)
+function is_simple1(y, pdraw, sols, lf)
     W = importance_weights(y, sols, lf)
     (μ=importance_mean(W, pdraw), ess=importance_ess(W))
 end
 
-p, s = preproc1(1000)
-@btime is_simple1(1000)
-# @btime is_simple1(100_000)
-# @btime is_simple1(10_000_000)
+p, s = preproc1(100_000);
+@btime is_simple1(y, p, s, lf)
+```
+
+```julia
+function preproc2(N, lf)
+    rvs = random_vars(pdist)
+    pdraws = map(_->NamedTuple{keys(rvs)}(rand.(values(rvs))), 1:N)
+    sols = prior_predict(pdraws, pdist; saveat=5.)
+    pdraws, [lf(x) for x ∈ sols]
+end
+
+function is_simple2(y, pdraw, ldists)
+    W = importance_weights(y, ldists)
+    (μ=importance_mean(W, pdraw), ess=importance_ess(W))
+end
+
+p, ldist = preproc2(100_000, lf);
+@btime is_simple2(y, p, ldist)
+```
+
+Current implementation using $G(\theta\mid y_0, d_0)$ with and without premaking distributions
+
+```julia
+function preproc3(N)
+    d₀ = fill(5, length(inf_curve))
+    y₀ = rand(DEParamDistributions.joint_poisson(d₀, inf_curve))
+    fit₀ = sample_mcmc(y₀, pdist, x->DEParamDistributions.array_poisson(d₀, x); save_idxs=1, saveat=5.)
+    gd = fitchain(fit₀, pdist)
+    rvs = random_vars(pdist)
+    postdraw = map(eachcol(rand(gd, N))) do draw
+        NamedTuple{keys(rvs)}(draw)
+    end
+    gsims = prior_predict(postdraw, pdist; save_idxs=1, saveat=5.)
+    pd = joint_prior(pdist)
+    gdraw = map(x->vcat(values(x)...), postdraw)
+    gdraw, pd, gd, gsims, [lf(x) for x ∈ gsims]
+end
+
+function is_better1(y, gdraw, gsim, lf, pd, gd)
+    W = importance_weights(y, gdraw, gsim; lf, pd, gd)
+    (μ=importance_mean(W, gdraw), ess=importance_ess(W))
+end
+
+gdraw, pd, gd, gsims, ldist = preproc3(100_000);
+@btime is_better1(y, gdraw, gsims, lf, pd, gd)
+```
+
+```julia
+function is_better2(y, gdraw, ldists, pd, gd)
+    W = importance_weights(y, gdraw; ldists, pd, gd)
+    (μ=importance_mean(W, gdraw), ess=importance_ess(W))
+end
+
+@btime is_better2(y, gdraw, ldist, pd, gd)
 ```
