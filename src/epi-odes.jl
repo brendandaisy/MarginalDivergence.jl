@@ -1,33 +1,57 @@
-export sir!, SIRParamDistribution
+export SIRParamDistribution, DSEIRParamDistribution
 
 function sir!(dx, x, p, t)
-    I, R = x
-    β, α, N = p
-    dx[1] = (β / N) * I * (N - I - R) - α * I
-    dx[2] = α * I
+    S, I = x
+    β, α = p
+    dx[1] = -β * I * S
+    dx[2] = β * I * S - α * I
 end
 
-function seir!(dx, x, p)
-    E, I, R = x
-    β, α, γ, μ, N = p
-    dx[1] = β * I * (N - E - I - R) - (γ + μ) * E
-    dx[2] = γ * E - α * I
-    dx[3] = μ * E + α * I
+# function seir!(dx, x, p)
+#     E, I, R = x
+#     β, α, γ, μ, N = p
+#     dx[1] = β * I * (N - E - I - R) - (γ + μ) * E
+#     dx[2] = γ * E - α * I
+#     dx[3] = μ * E + α * I
+# end
+
+Base.@kwdef struct SIRParamDistribution <: ODEParamDistribution
+    start::Float64 = 0.
+    stop::Float64 = 30.
+    S₀::TParam = 0.99
+    I₀::TParam = 0.01
+    β::TParam = 0.3
+    α::TParam = 0.1
 end
 
-struct SIRParamDistribution <: AbstractODEParamDistribution
-    start::Union{Float64, Distribution}
-    stop::Union{Float64, Distribution}
-    inf_init::Union{Float64, Distribution}
-    rec_init::Union{Float64, Distribution}
-    inf_rate::Union{Float64, Distribution}
-    rec_rate::Union{Float64, Distribution}
-    pop_size::Union{Float64, Distribution}
+initial_values(::Type{SIRParamDistribution}) = (:S₀, :I₀)
+parameters(::Type{SIRParamDistribution}) = (:β, :α)
+de_func(::Type{SIRParamDistribution}) = sir!
+
+Base.@kwdef struct DSEIRParamDistribution <: DDEParamDistribution
+    start::Float64 = 0.
+    stop::Float64 = 30.
+    S₀::TParam = 0.99
+    E₀::TParam = 0.
+    I₀::TParam = 0.01
+    β::TParam = 0.3
+    α::TParam = 0.1
+    τ::TParam = 1.
 end
 
-SIRParamDistribution(stop, rec_init, inf_rate, rec_rate) = 
-    SIRParamDistribution(0.0, stop, 0.01, rec_init, inf_rate, rec_rate, 1.0)
+# TODO Edel should be -h(;idxs=1), i.e. the newly exp ind at t - τ
+function delay_seir!(du, u, h, p, t)
+    β, α, τ = p
+    S, E, I = u
+    Edel = h(p, t - τ; idxs=2)
+    du[1] = -β * S * I
+    du[2] = max(β * S * I - Edel, -E)
+    du[3] = Edel - α * I
+end
 
-initial_values(::Type{SIRParamDistribution}) = (:inf_init, :rec_init)
-parameters(::Type{SIRParamDistribution}) = (:inf_rate, :rec_rate, :pop_size)
-ode_func(::Type{SIRParamDistribution}) = sir!
+hdseir(p, t; idxs=nothing) = typeof(idxs) <: Number ? 0. : [0.99, 0., 0.01]
+
+initial_values(::Type{DSEIRParamDistribution}) = (:S₀, :E₀, :I₀)
+parameters(::Type{DSEIRParamDistribution}) = (:β, :α, :τ)
+de_func(::Type{DSEIRParamDistribution}) = delay_seir!
+hist_func(::Type{DSEIRParamDistribution}) = hdseir

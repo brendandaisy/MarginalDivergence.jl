@@ -5,15 +5,14 @@ version = "0.1.0"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DelayDiffEq = "bcd4f6db-9728-5f36-b5f7-82caef46ccdb"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 IterTools = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
 NamedTupleTools = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
 RecursiveArrayTools = "731186ca-8d62-57ce-b412-fbd966d074cd"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
-Weave = "44d3d7a6-8a23-5bf8-98c5-b353f8df5ec9"
 
 [compat]
 julia = "1.2.1"

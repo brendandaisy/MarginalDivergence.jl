@@ -1,30 +1,40 @@
 module DEParamDistributions
 
-export AbstractODEParamDistribution
-export timespan, match_initial_values, match_parameters, random_vars, ode_problem, sample_ode_problem, sample_ode_problem!, update_ode_problem!
-export prior_predict
-export initial_values, parameters, SIRParamDistribution
+export TParam, AbstractDEParamDistribution, ODEParamDistribution, DDEParamDistribution
+export timespan, initial_values, parameters, hist_func, de_func
+export match_initial_values, match_parameters, random_vars, param_sample, de_problem, sample_de_problem, sample_de_problem!, update_de_problem!
 
-using OrdinaryDiffEq
+using OrdinaryDiffEq, DelayDiffEq
 using Distributions
 import IterTools: fieldvalues, properties
-import NamedTupleTools: ntfromstruct
+# import NamedTupleTools: ntfromstruct
 # using ParameterizedFunctions
 
-abstract type AbstractODEParamDistribution end
+const TParam = Union{Float64, Distribution}
 
-## Methods to implement AbstractODEParamDistribution interface
+abstract type AbstractDEParamDistribution end
+abstract type ODEParamDistribution <: AbstractDEParamDistribution end
+abstract type DDEParamDistribution <: AbstractDEParamDistribution end
 
-timespan(pdist::AbstractODEParamDistribution) = (pdist.start, pdist.stop)
-initial_values(pdist::AbstractODEParamDistribution) = initial_values(typeof(pdist))
-parameters(pdist::AbstractODEParamDistribution) = parameters(typeof(pdist))
-ode_func(pdist::AbstractODEParamDistribution) = ode_func(typeof(pdist))
+#= Convenience wrappers for AbstractDEParamDistribution interface =#
 
-## Matching values and making ODEProblem instances
+timespan(pdist::AbstractDEParamDistribution) = (pdist.start, pdist.stop)
+initial_values(pdist::AbstractDEParamDistribution) = initial_values(typeof(pdist))
+parameters(pdist::AbstractDEParamDistribution) = parameters(typeof(pdist))
+de_func(pdist::AbstractDEParamDistribution) = de_func(typeof(pdist))
+hist_func(pdist::DDEParamDistribution) = hist_func(typeof(pdist))
 
-# Return named tuple initial values from pdist, or from params if they appear there
-function match_initial_values(pdist::AbstractODEParamDistribution, params)
-    ret = Vector{eltype(params)}()
+#= Matching values and making ODEProblem instances =#
+
+### TODO support random timespans with .* (0, 0) trick
+
+"""
+Return a `NamedTuple` of the initial_values from pdist, or from params if they appear there.
+
+The returned values of type `eltype(params)`
+"""
+function match_initial_values(pdist::AbstractDEParamDistribution, params)
+    length(params) == 0 ? ret = Float64[] : ret = Vector{eltype(params)}()
     for (k, v) ∈ properties(pdist)
         if !(k ∈ initial_values(pdist))
             continue
@@ -34,8 +44,13 @@ function match_initial_values(pdist::AbstractODEParamDistribution, params)
     ret
 end
 
-function match_parameters(pdist::AbstractODEParamDistribution, params)
-    ret = Vector{eltype(params)}()
+"""
+Return a `NamedTuple` of the parameters from pdist, or from params if they appear there.
+
+The returned values of type `eltype(params)`
+"""
+function match_parameters(pdist::AbstractDEParamDistribution, params)
+    length(params) == 0 ? ret = Float64[] : ret = Vector{eltype(params)}()
     for (k, v) ∈ properties(pdist)
         if !(k ∈ parameters(pdist))
             continue
@@ -45,60 +60,79 @@ function match_parameters(pdist::AbstractODEParamDistribution, params)
     ret
 end
 
-function random_vars(pdist::T) where T <: AbstractODEParamDistribution
+"""
+Return a `NamedTuple` of properties in pdist which are a `Distribution`
+"""
+function random_vars(pdist::T) where T <: AbstractDEParamDistribution
     props = collect(properties(pdist))
     NamedTuple(filter(x->isa(x[2], Distribution), props))
 end
 
-function param_sample(pdist::AbstractODEParamDistribution)  
-    kk = fieldnames(typeof(pdist))
-    vv = map(fieldvalues(pdist)) do v
-        isa(v, Distribution) ? rand(v) : v
-    end
-    NamedTuple(zip(kk, vv))
+"""
+Return a `NamedTuple` of a sample from `random_vars`
+"""
+function param_sample(pdist::AbstractDEParamDistribution)
+    rvs = random_vars(pdist)
+    NamedTuple{keys(rvs)}(rand.(values(rvs)))
+    # kk = fieldnames(typeof(pdist))
+    # vv = map(fieldvalues(pdist)) do v
+    #     isa(v, Distribution) ? rand(v) : v
+    # end
+    # NamedTuple(zip(kk, vv))
 end
 
-function ode_problem(::Type{T}, tspan=(0., 1.); kwargs...) where {T <: AbstractODEParamDistribution}
-    init = Vector{Float64}(undef, length(initial_values(T)))
-    ts = tspan
-    p = Vector{Float64}(undef, length(parameters(T)))
-    ODEProblem(ode_func(T), init, ts, p; kwargs...)
+"""
+Initialize a differential equations problem of appropriate type (ODE, DDE).
+
+Provide a type `T` to initialize a problem using `T`'s default fields.
+"""
+function de_problem(::Type{T}; dekwargs...) where {T <: AbstractDEParamDistribution}
+    de_problem(T(); dekwargs...)
 end
 
-function ode_problem(pdist, params; kwargs...)
+function de_problem(pdist::ODEParamDistribution, params=(;); dekwargs...)
     init = match_initial_values(pdist, params)
     ts = timespan(pdist)
     p = match_parameters(pdist, params)
-    ODEProblem(ode_func(typeof(pdist)), init, ts, p; kwargs...)
+    ODEProblem(de_func(pdist), init, ts, p; dekwargs...)
 end
 
-# TODO remove or add check for only fixed params in pdist
-ode_problem(pdist; kwargs...) = ode_problem(pdist, ntfromstruct(pdist); kwargs...)
+function de_problem(pdist::DDEParamDistribution, params=(;); dekwargs...)
+    init = match_initial_values(pdist, params)
+    ts = timespan(pdist)
+    p = match_parameters(pdist, params)
+    h = hist_func(pdist)
+    DDEProblem(de_func(pdist), init, h, ts, p; dekwargs...)
+end
 
-function sample_ode_problem(pdist::AbstractODEParamDistribution; kwargs...)
+function sample_de_problem(pdist::AbstractDEParamDistribution; dekwargs...)
     ps = param_sample(pdist)
-    ode_problem(pdist, ps; kwargs...)
+    de_problem(pdist, ps; dekwargs...)
 end
 
 ## TODO: no check for incompat. prob and pdist
-function sample_ode_problem!(prob::ODEProblem, pdist::AbstractODEParamDistribution)
-    if isa(pdist.start, Distribution) | isa(pdist.stop, Distribution)
-        error("must make new ODEProblem for timespan distributions")
-    end
+function sample_de_problem!(prob::SciMLBase.SciMLProblem, pdist::AbstractDEParamDistribution)
+    # if isa(pdist.start, Distribution) | isa(pdist.stop, Distribution)
+    #     error("must make new ODEProblem for timespan distributions")
+    # end
     ps = param_sample(pdist)
-    update_ode_problem!(prob, pdist, ps)
+    update_de_problem!(prob, pdist, ps)
 end
 
-function update_ode_problem!(prob::ODEProblem, pdist, params)
+function update_de_problem!(prob::SciMLBase.SciMLProblem, pdist, params)
     prob.u0 .= match_initial_values(pdist, params)
     prob.p .= match_parameters(pdist, params)
     prob
 end
 
-## Include other methods for simulation and inference
+function remake_prob(prob::SciMLBase.SciMLProblem, pdist, params)
+    remake(prob; u0=match_initial_values(pdist, params), p=match_parameters(pdist, params))
+end
+
+#= Include other methods for simulation and inference =#
 
 include("epi-odes.jl")
-include("prior-predict.jl")
-include("posterior.jl")
+include("simulation.jl")
+include("inference.jl")
 
 end # module

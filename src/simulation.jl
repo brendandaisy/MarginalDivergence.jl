@@ -1,24 +1,6 @@
 using DifferentialEquations.EnsembleAnalysis
 
-export prior_predict, predict_yhat, joint_prior
-## TODO: would be less confusing if it was the same syntax for pripd/postpd to:
-## get vector of series
-## get summary stats of series
-
-## TODO: make dealing with >1 compartment consistent with posterior
-
-## Apply lik to each vector (timeseries/sols) of a vector (samples)
-## TODO: enforce a joint distribution (NOT array of distributions. Move away from this)
-function predict_yhat(vec, jointlik)
-    curves = vec
-    if vec[1] isa ODESolution # unpack the simulations
-        curves = [sol.u for sol ∈ vec]
-    end
-    map(curves) do c
-        jl = jointlik(c)
-        rand(jl)
-    end
-end
+export simulate
 
 # pluck_vecvec(vecvec, keep=1) = [x[keep] for x ∈ vecvec]
 
@@ -59,31 +41,30 @@ end
 #     ret
 # end
 
-joint_prior(pdist) = product_distribution(vcat(values(random_vars(pdist))...))
-
-## TODO: for now only sparse saving for speed, at sacrifice of summaries and plotting
-function prior_predict(
-        pdist::AbstractODEParamDistribution, N=4000; 
-        save_idxs=1, saveat=1., sparse=true, de_kwargs...
+function simulate(
+        pdist::AbstractDEParamDistribution, N=4000; keep=false, de_kwargs...
 )
-    init_prob = sample_ode_problem(pdist; save_idxs=save_idxs, saveat=saveat, de_kwargs...)
-    pf = (prob, i, repeat) -> sample_ode_problem!(prob, pdist)
-    if sparse
-        of = (prob, i) -> (prob.u, false)
+    init_prob = sample_de_problem(pdist; de_kwargs...)
+    pf = (prob, i, repeat) -> sample_de_problem!(prob, pdist)
+    if keep
+        of = (prob, i) -> (prob, false) 
     else
-        of = (prob, i) -> (prob, false)
+        of = (prob, i) -> (prob.u, false)
     end
     solve(EnsembleProblem(init_prob, prob_func=pf, output_func=of), Tsit5(), EnsembleThreads(), trajectories=N)
 end
 
 ## Run using precomputed vector of parameters
 ## pdist is just for matching names
-function prior_predict(
-    psamples::AbstractVector, pdist::AbstractODEParamDistribution;
-    save_idxs=1, saveat=1., sparse=true, de_kwargs...
+function simulate(
+    psamples::AbstractVector, pdist::AbstractDEParamDistribution; keep=false, de_kwargs...
 )
-    init_prob = sample_ode_problem(pdist; save_idxs=save_idxs, saveat=saveat, de_kwargs...)
-    pf = (prob, i, repeat) -> update_ode_problem!(prob, pdist, psamples[i])
-    of = (prob, i) -> (prob.u, false)
+    init_prob = sample_de_problem(pdist; de_kwargs...)
+    pf = (prob, i, repeat) -> update_de_problem!(prob, pdist, psamples[i])
+    if keep
+        of = (prob, i) -> (prob, false) 
+    else
+        of = (prob, i) -> (prob.u, false)
+    end
     solve(EnsembleProblem(init_prob, prob_func=pf, output_func=of), Tsit5(), EnsembleThreads(), trajectories=length(psamples))
 end
