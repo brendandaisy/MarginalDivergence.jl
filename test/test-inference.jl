@@ -1,4 +1,3 @@
-using Revise
 using DEParamDistributions
 using Test
 using Distributions

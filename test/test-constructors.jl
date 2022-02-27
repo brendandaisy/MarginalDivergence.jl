@@ -1,5 +1,4 @@
 using Test
-using Revise
 using DEParamDistributions
 using Distributions
 using DelayDiffEq, OrdinaryDiffEq
