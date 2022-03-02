@@ -64,21 +64,22 @@ function local_utility(
     N=100, precomps, dekwargs...
 )
     xtrue = solve(de_problem(pdist, θtrue; dekwargs...), Tsit5()).u
-    
-    # if :NSSE ∈ keys(precomps)
+    ufunc = Dict()
+    if :NSSE ∈ keys(precomps)
         gsamples, pri_dist, gdist, gsims = precomps[:NSSE]
         ldist_nsse = map(dlik, gsims)
-        _nsse = y->get_nsse(y, values(θtrue), ldist_nsse; gsamples, pri_dist, gdist)
-    # end
-    # if :SIG ∈ keys(precomps)
+        ufunc[:NSSE] = y->get_nsse(y, values(θtrue), ldist_nsse; gsamples, pri_dist, gdist)
+    end
+    if :SIG ∈ keys(precomps)
         true_ldist = dlik(xtrue)
         ldist_sig = map(dlik, precomps[:SIG].psims)
-        _sig = y->get_sig(y, ldist_sig, true_ldist)
-    # end
-
-    utils = pmap(1:N) do _ # expectation over ys
-        y = rand(dlik(xtrue))
-        [_sig(y), _nsse(y)]
+        ufunc[:SIG] = y->get_sig(y, ldist_sig, true_ldist)
     end
-    return (SIG=mean(first.(utils)), NSSE=mean(last.(utils)))
+
+    yreps = pmap(1:N) do _ # expectation over ys
+        y = rand(dlik(xtrue))
+        [f(y) for f ∈ values(ufunc)]
+    end
+    utils = [mean(getindex.(yreps, i)) for i=1:length(keys(ufunc))]
+    return (;zip(keys(ufunc), utils)...)
 end
