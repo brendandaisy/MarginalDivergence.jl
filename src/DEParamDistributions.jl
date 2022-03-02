@@ -134,5 +134,6 @@ end
 include("epi-odes.jl")
 include("simulation.jl")
 include("inference.jl")
+include("utility.jl")
 
 end # module

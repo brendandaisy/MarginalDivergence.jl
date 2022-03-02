@@ -42,9 +42,9 @@ export simulate
 # end
 
 function simulate(
-        pdist::AbstractDEParamDistribution, N=4000; keep=false, de_kwargs...
+        pdist::AbstractDEParamDistribution, N=4000; keep=false, dekwargs...
 )
-    init_prob = sample_de_problem(pdist; de_kwargs...)
+    init_prob = sample_de_problem(pdist; dekwargs...)
     pf = (prob, i, repeat) -> sample_de_problem!(prob, pdist)
     if keep
         of = (prob, i) -> (prob, false) 
@@ -57,9 +57,9 @@ end
 ## Run using precomputed vector of parameters
 ## pdist is just for matching names
 function simulate(
-    psamples::AbstractVector, pdist::AbstractDEParamDistribution; keep=false, de_kwargs...
+    psamples::AbstractVector, pdist::AbstractDEParamDistribution; keep=false, dekwargs...
 )
-    init_prob = sample_de_problem(pdist; de_kwargs...)
+    init_prob = sample_de_problem(pdist; dekwargs...)
     pf = (prob, i, repeat) -> update_de_problem!(prob, pdist, psamples[i])
     if keep
         of = (prob, i) -> (prob, false) 
