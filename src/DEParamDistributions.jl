@@ -2,7 +2,8 @@ module DEParamDistributions
 
 export TParam, AbstractDEParamDistribution, ODEParamDistribution, DDEParamDistribution
 export timespan, initial_values, parameters, hist_func, de_func
-export match_initial_values, match_parameters, random_vars, param_sample, de_problem, sample_de_problem, sample_de_problem!, update_de_problem!
+export match_initial_values, match_parameters, random_vars, param_sample, de_problem 
+export sample_de_problem, sample_de_problem!, update_de_problem!, remake_prob!
 
 using OrdinaryDiffEq, DelayDiffEq
 using Distributions
@@ -125,7 +126,7 @@ function update_de_problem!(prob::SciMLBase.SciMLProblem, pdist, params)
     prob
 end
 
-function remake_prob(prob::SciMLBase.SciMLProblem, pdist, params)
+function remake_prob!(prob::SciMLBase.SciMLProblem, pdist, params)
     remake(prob; u0=match_initial_values(pdist, params), p=match_parameters(pdist, params))
 end
 

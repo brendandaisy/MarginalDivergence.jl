@@ -4,9 +4,10 @@ using Turing
 
 export prior_predict
 export turingode, sample_mcmc, mcmc_mean, fitchain, extract_vars
+export mle
 export importance_weights, importance_weights!, importance_mean, importance_ess
 export model_evidence
-export joint_prior, array_poisson, joint_poisson, array_binom, joint_binom
+export joint_prior, array_poisson, joint_poisson, array_binom, joint_binom, array_neg_binom, joint_neg_binom
 
 #= Prior Prediction =#
 
@@ -90,6 +91,35 @@ function fitchain(ch::Chains, pdist::AbstractDEParamDistribution; d=MvNormal)
     Distributions.fit(d, Array(ch)[:,ii]')
 end
 
+###
+
+bound_check(θ) = all(θ .≥ 0)
+
+## current assumption is that model likelihood is indep in y and t
+## data and likelihood should have matching types
+## data vec should be vec(data), where data has matching dimensions of sol
+function log_likelihood(data_vec, prob, θ, likelihood, names)
+    if !bound_check(θ)
+        return 1_000_000
+    end
+    update_de_problem!(prob, pdist, NamedTuple(zip(names, samp_vals)))
+    sol = solve(prob, Tsit5())
+    if sol.retcode != :Success
+        return 1_000_000
+    end
+    lik = product_distribution(likelihood.(vec(Array(sol)))) # lol
+    return -logpdf(lik, data)
+end
+
+function mle_optim(data, pdist::AbstractDEParamDistribution, likelihood=Poisson; names=keys(random_vars(pdist)), dekwargs...)
+    prob = de_problem(typeof(pdist); dekwargs...)
+    f = θ -> log_likelihood(data, prob, θ, likelihood, names)
+    init = (getfield(pdist, k) for k ∈ names)
+    init_float = [p isa Distribution ? rand(p) : p for p ∈ init]
+    optimize(f, init_float, BFGS())
+end
+
+
 #= Methods for importance sampling =#
 
 # _logweight(y, u, jointlik::Function) = logpdf(jointlik(u), y)
@@ -164,3 +194,6 @@ joint_poisson(λs) = product_distribution(array_poisson(λs))
 
 array_poisson(n, p) = Poisson.(max.(1e-5, n .* p))
 joint_poisson(n, p) = product_distribution(array_poisson(n, p))
+
+array_neg_binom(r::T, μ) where T <: Real = NegativeBinomial.(r, r ./ (r .+ μ))
+joint_neg_binom(r, μ) = product_distribution(array_neg_binom(r, μ))
