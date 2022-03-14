@@ -22,7 +22,7 @@ function get_nsse(y, θtrue, likdists; gsamples, pri_dist, gdist)
 end
 
 function get_sig(y, likdists, true_ldist)
-    log_evidence = model_evidence(y, likdists; log=true)
+    log_evidence = model_evidence(y, likdists; aslog=true)
     sig(true_ldist, y, log_evidence)
 end
 

@@ -172,8 +172,8 @@ importance_ess(W) = 1 / sum(x->x^2, W)
 """
 Compute the model evidence log(p(y | d)) using precomputed likelihood distributions or from calling `likelihood` on each `sim`
 """
-function model_evidence(data, likdists::Vector{T}; log=true) where T <: Distribution
-    -log(length(likdists)) + logsumexp(map(dist->logpdf(dist, y), likdists))
+function model_evidence(data, likdists::Vector{T}; aslog=true) where T <: Distribution
+    -log(length(likdists)) + logsumexp(map(dist->logpdf(dist, data), likdists))
 end
 
 function model_evidence(data, sim::EnsembleSolution, likelihood::Function)
