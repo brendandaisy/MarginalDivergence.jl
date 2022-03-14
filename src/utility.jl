@@ -8,7 +8,7 @@ export all_designs_precomps, local_utility
 
 nsse(θ, θest) = -sum((θ .- θest).^2)
 
-sig(true_ldist, y, evidence) = logpdf(true_ldist, y) - log(evidence)
+sig(true_ldist, y, evidence) = logpdf(true_ldist, y) - evidence
 
 function initial_fit(x, pdist, likelihood; dekwargs...)
     y₀ = rand(likelihood(x))
@@ -22,8 +22,8 @@ function get_nsse(y, θtrue, likdists; gsamples, pri_dist, gdist)
 end
 
 function get_sig(y, likdists, true_ldist)
-    evidence = model_evidence(y, likdists)
-    sig(true_ldist, y, evidence)
+    log_evidence = model_evidence(y, likdists; log=true)
+    sig(true_ldist, y, log_evidence)
 end
 
 function nsse_precomps(xtrue, pdist, likelihood=joint_poisson; Ng=2000, dekwargs...)  

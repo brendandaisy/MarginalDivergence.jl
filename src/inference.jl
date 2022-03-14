@@ -1,6 +1,7 @@
 ## Methods for posterior approximation θ∣y
 
 using Turing
+import StatsFuns: logsumexp
 
 export prior_predict
 export turingode, sample_mcmc, mcmc_mean, fitchain, extract_vars
@@ -169,10 +170,10 @@ Effective sample size for (normalized) importance weights W
 importance_ess(W) = 1 / sum(x->x^2, W)
 
 """
-Compute the model evidence p(y | d) using precomputed likelihood distributions or from calling `likelihood` on each `sim`
+Compute the model evidence log(p(y | d)) using precomputed likelihood distributions or from calling `likelihood` on each `sim`
 """
-function model_evidence(data, likdists::Vector{T}) where T <: Distribution
-    map(d->pdf(d, data), likdists) |> mean
+function model_evidence(data, likdists::Vector{T}; log=true) where T <: Distribution
+    -log(length(likdists)) + logsumexp(map(dist->logpdf(dist, y), likdists))
 end
 
 function model_evidence(data, sim::EnsembleSolution, likelihood::Function)
