@@ -1,13 +1,10 @@
 ## Methods for posterior approximation θ∣y
 
-using Turing
-import StatsFuns: logsumexp
-
 export prior_predict
 export turingode, sample_mcmc, mcmc_mean, fitchain, extract_vars
 export mle
 export importance_weights, importance_weights!, importance_mean, importance_ess
-export model_evidence
+export marginal_likelihood
 export joint_prior, array_poisson, joint_poisson, array_binom, joint_binom, array_neg_binom, joint_neg_binom
 
 #= Prior Prediction =#
@@ -109,7 +106,7 @@ function log_likelihood(data_vec, prob, θ, likelihood, names)
         return 1_000_000
     end
     lik = product_distribution(likelihood.(vec(Array(sol)))) # lol
-    return -logpdf(lik, data)
+    return -logpdf(lik, data_vec)
 end
 
 function mle_optim(data, pdist::AbstractDEParamDistribution, likelihood=Poisson; names=keys(random_vars(pdist)), dekwargs...)
@@ -170,13 +167,13 @@ Effective sample size for (normalized) importance weights W
 importance_ess(W) = 1 / sum(x->x^2, W)
 
 """
-Compute the model evidence log(p(y | d)) using precomputed likelihood distributions or from calling `likelihood` on each `sim`
+Compute the (log) marginal likelihood log(p(y | d)) using precomputed likelihood distributions or from calling `likelihood` on each `sim`
 """
-function model_evidence(data, likdists::Vector{T}; aslog=true) where T <: Distribution
+function marginal_likelihood(data, likdists::Vector{T}) where T <: Distribution
     -log(length(likdists)) + logsumexp(map(dist->logpdf(dist, data), likdists))
 end
 
-function model_evidence(data, sim::EnsembleSolution, likelihood::Function)
+function marginal_likelihood(data, sim::EnsembleSolution, likelihood::Function)
     map(x->pdf(likelihood(u), data), sim) |> mean
 end
 

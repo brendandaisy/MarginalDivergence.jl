@@ -1,4 +1,3 @@
-using DifferentialEquations.EnsembleAnalysis
 
 export simulate
 
@@ -42,7 +41,7 @@ export simulate
 # end
 
 function simulate(
-        pdist::AbstractDEParamDistribution, N=4000; keep=false, dekwargs...
+    pdist::AbstractDEParamDistribution, N=4000; keep=false, dekwargs...
 )
     init_prob = sample_de_problem(pdist; dekwargs...)
     pf = (prob, i, repeat) -> sample_de_problem!(prob, pdist)
@@ -68,3 +67,15 @@ function simulate(
     end
     solve(EnsembleProblem(init_prob, prob_func=pf, output_func=of), Tsit5(), EnsembleThreads(), trajectories=length(psamples))
 end
+
+function simulate(θfix::NamedTuple, pdist::PD, N; keep=false, dekwargs...) where {PD<:AbstractDEParamDistribution}
+    props = properties(random_vars(pdist)) |> collect
+    θrest = filter(tup->tup[1] ∉ keys(θfix), props) |> NamedTuple
+    simulate(PD(;θrest..., θfix...), N; keep, dekwargs...)
+end
+
+## above func seems quite useful
+## notice that different param_comb and marginal computations overlap! But in kinda complicated way
+## plan: 1. maintain a dict of diff combs of free/fixed sims
+## 2. this can be saved, and "runorloaded" during an actual run (actually could do this for full precomp...)
+## 3. make use of these appropriately. For example, if param_comb=(β, α), compute p(y∣S₀) with marg for S₀ and p()

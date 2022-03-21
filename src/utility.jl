@@ -1,14 +1,7 @@
-using DEParamDistributions
-using OrdinaryDiffEq
-using Distributions
-using Distributed
-import Statistics: mean
 
-export all_designs_precomps, local_utility
+export all_designs_precomps, local_utility, local_marginal_utility
 
 nsse(θ, θest) = -sum((θ .- θest).^2)
-
-sig(true_ldist, y, evidence) = logpdf(true_ldist, y) - evidence
 
 function initial_fit(x, pdist, likelihood; dekwargs...)
     y₀ = rand(likelihood(x))
@@ -21,9 +14,15 @@ function get_nsse(y, θtrue, likdists; gsamples, pri_dist, gdist)
     nsse(θtrue, importance_mean(W, gsamples))
 end
 
-function get_sig(y, likdists, true_ldist)
-    log_evidence = model_evidence(y, likdists; aslog=true)
-    sig(true_ldist, y, log_evidence)
+function sig(y, pri_ldists, true_ldist)
+    log_evidence = marginal_likelihood(y, pri_ldists)
+    logpdf(true_ldist, y) - log_evidence
+end
+
+function sig(y, pri_ldists, true_ldists::Vector)
+    log_cond = marginal_likelihood(y, true_ldists) # marginalize out free param
+    log_evidence = marginal_likelihood(y, pri_ldists)
+    log_cond - log_evidence
 end
 
 function nsse_precomps(xtrue, pdist, likelihood=joint_poisson; Ng=2000, dekwargs...)  
@@ -41,26 +40,26 @@ function nsse_precomps(xtrue, pdist, likelihood=joint_poisson; Ng=2000, dekwargs
     return (gsamples, pri_dist, gdist, gsims)
 end
 
-function all_designs_precomps(
-    θtrue, pdist::AbstractDEParamDistribution, likelihood=joint_poisson; # signal here is where lik get wrapped
-    umap=(SIG=100, NSSE=100), dekwargs...
-)
-    ret = Dict()
-    xtrue = solve(de_problem(pdist, θtrue; dekwargs...), Tsit5()).u
-    if :NSSE ∈ keys(umap)
-        nm = (:gsamples, :pri_dist, :gdist, :gsims)
-        vals = nsse_precomps(xtrue, pdist, likelihood; Ng=umap.NSSE, dekwargs...)
-        ret[:NSSE] = NamedTuple{nm}(vals)
-    end
-    if :SIG ∈ keys(umap)
-        psims = simulate(pdist, umap.SIG; dekwargs...)
-        ret[:SIG] = (;psims)
-    end
-    return ret
-end
+# function all_designs_precomps(
+#     θtrue, pdist::AbstractDEParamDistribution; # signal here is where lik get wrapped
+#     umap=(SIG=100, NSSE=100), dekwargs...
+# )
+#     ret = Dict()
+#     # xtrue = solve(de_problem(pdist, θtrue; dekwargs...), Tsit5()).u
+#     # if :NSSE ∈ keys(umap)
+#     #     nm = (:gsamples, :pri_dist, :gdist, :gsims)
+#     #     vals = nsse_precomps(xtrue, pdist, likelihood; Ng=umap.NSSE, dekwargs...)
+#     #     ret[:NSSE] = NamedTuple{nm}(vals)
+#     # end
+#     if :SIG ∈ keys(umap)
+#         psims = simulate(pdist, umap.SIG; dekwargs...)
+#         ret[:SIG] = (;psims)
+#     end
+#     return ret
+# end
 
 function local_utility(
-    d, θtrue, pdist::AbstractDEParamDistribution, dlik=x->joint_poisson(d, x); # signal here is where lik get wrapped
+    θtrue, pdist::AbstractDEParamDistribution, dlik; # signal here is where lik get wrapped
     N=100, precomps, dekwargs...
 )
     xtrue = solve(de_problem(pdist, θtrue; dekwargs...), Tsit5()).u
@@ -73,7 +72,7 @@ function local_utility(
     if :SIG ∈ keys(precomps)
         true_ldist = dlik(xtrue)
         ldist_sig = map(dlik, precomps[:SIG].psims)
-        ufunc[:SIG] = y->get_sig(y, ldist_sig, true_ldist)
+        ufunc[:SIG] = y->sig(y, ldist_sig, true_ldist)
     end
 
     yreps = pmap(1:N) do _ # expectation over ys
@@ -83,3 +82,74 @@ function local_utility(
     utils = [mean(getindex.(yreps, i)) for i=1:length(keys(ufunc))]
     return (;zip(keys(ufunc), utils)...)
 end
+
+"""
+Get the fixed obs params, i.e. the true ones that are not in `free_obs_params`
+"""
+function fixed_obs_params(true_obs_params, free_obs_params)
+    props = collect(properties(true_obs_params))
+    f(tup) = !(tup[1] ∈ keys(free_obs_params[1]))
+    NamedTuple(filter(f, props))
+end
+
+"""
+Optional precomputations
+free_obs: `NamedTuple`\n
+marginals: `Tuple`
+"""
+function all_designs_precomps(
+    θtrue, pdist::PD; 
+    M=100, free_obs=nothing, marginals=nothing, dekwargs...
+) where {PD<:AbstractDEParamDistribution}
+    ret = Dict{String, Any}(
+        "true_sim" => solve(de_problem(PD(;θtrue...); dekwargs...), Tsit5()).u,
+        "pri_sims" => simulate(pdist, M; dekwargs...)
+    )
+    # now the optional ones
+    if !isnothing(free_obs)
+        nm = keys(free_obs)
+        free_obs_params = [NamedTuple{nm}(rand.(values(free_obs))) for _ ∈ 1:M]
+        ret["free_obs_params"] = free_obs_params
+    end
+    if !isnothing(marginals) # hold specified param constant and simulate over others
+        for θᵢ ∈ marginals
+            props = properties(θtrue) |> collect
+            θnew = filter(tup->tup[1] == θᵢ, props) |> NamedTuple
+            margsim = simulate(PD(;θnew...), M; dekwargs...)
+            ret[string("margsim_", θᵢ)] = margsim
+        end
+    end
+    return ret
+end
+
+function local_utility(
+    true_sim, sims, true_obs_params, free_obs_params::Vector{T}, likelihood; N=100
+) where {T <: NamedTuple}
+    true_ldist = likelihood(true_sim; true_obs_params...)
+    obs_pfixed = fixed_obs_params(true_obs_params, free_obs_params)
+    likdists = map(tup->likelihood(tup[1]; obs_pfixed..., tup[2]...), zip(sims, free_obs_params))
+
+    ureps = pmap(1:N) do _ # expectation over ys
+        y = rand(true_ldist)
+        sig(y, likdists, true_ldist)
+    end
+    Û = mean(ureps)
+    return Û
+end
+
+function local_marginal_utility(true_sim, true_cond_sims, pri_sims, obs_params, likelihood::Function; N=100)
+
+    marg_ldists = map(x->likelihood(x; obs_params...), true_cond_sims)
+    pri_ldists = map(x->likelihood(x; obs_params...), pri_sims)
+
+    ureps = pmap(1:N) do _ # expectation over ys
+        y = rand(likelihood(true_sim; obs_params...))
+        sig(y, pri_ldists, marg_ldists)
+    end
+    Û = mean(ureps)
+    return Û
+end
+
+# function local_utility(precomps::Dict, likelihood; N=100) # Dict so u can bundle but still adjust e.g. t
+#     local_utility(precomps.true_sim, precomps.sims, precomps.true_obs_params, precomps.free_obs_param, likelihood; N)
+# end

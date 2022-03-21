@@ -24,9 +24,9 @@ Base.@kwdef struct SIRParamDistribution <: ODEParamDistribution
     α::TParam = 0.1
 end
 
-initial_values(::Type{SIRParamDistribution}) = (:S₀, :I₀)
-parameters(::Type{SIRParamDistribution}) = (:β, :α)
-de_func(::Type{SIRParamDistribution}) = sir!
+initial_values(::SIRParamDistribution) = (:S₀, :I₀)
+parameters(::SIRParamDistribution) = (:β, :α)
+de_func(::SIRParamDistribution) = sir!
 
 Base.@kwdef struct DSEIRParamDistribution <: DDEParamDistribution
     start::Float64 = 0.
@@ -51,7 +51,7 @@ end
 
 hdseir(p, t; idxs=nothing) = typeof(idxs) <: Number ? 0. : [0.99, 0., 0.01]
 
-initial_values(::Type{DSEIRParamDistribution}) = (:S₀, :E₀, :I₀)
-parameters(::Type{DSEIRParamDistribution}) = (:β, :α, :τ)
-de_func(::Type{DSEIRParamDistribution}) = delay_seir!
-hist_func(::Type{DSEIRParamDistribution}) = hdseir
+initial_values(::DSEIRParamDistribution) = (:S₀, :E₀, :I₀)
+parameters(::DSEIRParamDistribution) = (:β, :α, :τ)
+de_func(::DSEIRParamDistribution) = delay_seir!
+hist_func(::DSEIRParamDistribution) = hdseir
