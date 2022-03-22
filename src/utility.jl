@@ -137,15 +137,26 @@ function local_utility(
     return Û
 end
 
-function local_marginal_utility(true_sim, true_cond_sims, pri_sims, obs_params, likelihood::Function; N=100)
+function local_marginal_utility(
+    true_sim, true_cond_sims, pri_sims, likelihood::Function; 
+    N=100, obs_params=(;), distributed=nprocs()>1
+)
 
     marg_ldists = map(x->likelihood(x; obs_params...), true_cond_sims)
     pri_ldists = map(x->likelihood(x; obs_params...), pri_sims)
     true_ldist = likelihood(true_sim; obs_params...)
 
-    ureps = pmap(1:N) do _ # expectation over ys
-        y = rand(true_ldist)
-        sig(y, pri_ldists, marg_ldists)
+    if distributed
+        ureps = pmap(1:N) do _ # expectation over ys
+            y = rand(true_ldist)
+            sig(y, pri_ldists, marg_ldists)
+        end
+    else
+        ureps = []
+        Threads.@threads for i=1:N
+            y = rand(true_ldist)
+            push!(ureps, sig(y, pri_ldists, marg_ldists))
+        end
     end
     Û = mean(ureps)
     return Û
