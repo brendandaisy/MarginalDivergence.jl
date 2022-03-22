@@ -146,13 +146,13 @@ function local_marginal_utility(
     pri_ldists = map(x->likelihood(x; obs_params...), pri_sims)
     true_ldist = likelihood(true_sim; obs_params...)
 
+    ureps = []
     if distributed
         ureps = pmap(1:N) do _ # expectation over ys
             y = rand(true_ldist)
             sig(y, pri_ldists, marg_ldists)
         end
     else
-        ureps = []
         Threads.@threads for i=1:N
             y = rand(true_ldist)
             push!(ureps, sig(y, pri_ldists, marg_ldists))
