@@ -148,14 +148,14 @@ function local_utility(
     if distributed
         ureps = pmap(1:N) do _ # expectation over ys
             y = rand(true_ldist)
-            sig(y, pri_ldists, marg_ldists)
+            sig(y, pri_ldists, true_ldist)
         end
         Û = mean(ureps)
     else
         Û = 0
         Threads.@threads for i=1:N
             y = rand(true_ldist)
-            Û += sig(y, pri_ldists, marg_ldists)
+            Û += sig(y, pri_ldists, true_ldist)
         end
         Û = Û / N
     end
