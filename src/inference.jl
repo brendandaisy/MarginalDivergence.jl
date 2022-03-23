@@ -58,11 +58,15 @@ Sampling uses `MCMCThreads` and returns a `Chains` object.
 """
 function sample_mcmc(
     data, pdist::AbstractDEParamDistribution, likelihood=array_poisson; 
-    sampler=NUTS(), iter=500, chains=4, arraylik=true, dekwargs...
+    sampler=NUTS(), iter=500, chains=4, arraylik=true, ŷ=false, dekwargs...
 )
     prob₀ = sample_de_problem(pdist; dekwargs...)
     model = turingode(data, prob₀, pdist, likelihood; arraylik)
-    sample(model, sampler, MCMCThreads(), iter, chains)
+    ch = sample(model, sampler, MCMCThreads(), iter, chains)
+    if ŷ
+        return ch, generated_quantities(model, ch)
+    end
+    return ch
 end
 
 mcmc_mean(fit) = summarystats(fit).nt.mean
