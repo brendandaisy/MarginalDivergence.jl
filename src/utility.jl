@@ -122,18 +122,43 @@ function all_designs_precomps(
     return ret
 end
 
-function local_utility(
-    true_sim, sims, true_obs_params, free_obs_params::Vector{T}, likelihood; N=100
-) where {T <: NamedTuple}
-    true_ldist = likelihood(true_sim; true_obs_params...)
-    obs_pfixed = fixed_obs_params(true_obs_params, free_obs_params)
-    likdists = map(tup->likelihood(tup[1]; obs_pfixed..., tup[2]...), zip(sims, free_obs_params))
+# function local_utility(
+#     true_sim, sims, true_obs_params, free_obs_params::Vector{T}, likelihood; N=100
+# ) where {T <: NamedTuple}
+#     true_ldist = likelihood(true_sim; true_obs_params...)
+#     obs_pfixed = fixed_obs_params(true_obs_params, free_obs_params)
+#     likdists = map(tup->likelihood(tup[1]; obs_pfixed..., tup[2]...), zip(sims, free_obs_params))
 
-    ureps = pmap(1:N) do _ # expectation over ys
-        y = rand(true_ldist)
-        sig(y, likdists, true_ldist)
+#     ureps = pmap(1:N) do _ # expectation over ys
+#         y = rand(true_ldist)
+#         sig(y, likdists, true_ldist)
+#     end
+#     Û = mean(ureps)
+#     return Û
+# end
+
+function local_utility(
+    true_sim, pri_sims, likelihood::Function; 
+    N=100, obs_params=(;), distributed=nprocs()>1
+)
+
+    pri_ldists = map(x->likelihood(x; obs_params...), pri_sims)
+    true_ldist = likelihood(true_sim; obs_params...)
+
+    if distributed
+        ureps = pmap(1:N) do _ # expectation over ys
+            y = rand(true_ldist)
+            sig(y, pri_ldists, marg_ldists)
+        end
+        Û = mean(ureps)
+    else
+        Û = 0
+        Threads.@threads for i=1:N
+            y = rand(true_ldist)
+            Û += sig(y, pri_ldists, marg_ldists)
+        end
+        Û = Û / N
     end
-    Û = mean(ureps)
     return Û
 end
 

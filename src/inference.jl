@@ -73,6 +73,8 @@ mcmc_mean(fit) = summarystats(fit).nt.mean
 
 """
 Return a vector of `NamedTuple` of posterior draws from `ch`.
+
+TODO this is broken!!!
 """
 function extract_vars(ch::Chains, pdist::AbstractDEParamDistribution)
     vars = keys(random_vars(pdist))
