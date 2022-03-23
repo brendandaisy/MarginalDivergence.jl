@@ -180,8 +180,7 @@ function local_marginal_utility(
     else
         Û = 0
         Threads.@threads for i=1:N
-            y = rand(true_ldist)
-            Û += sig(y, pri_ldists, marg_ldists)
+            Û += sig(rand(true_ldist), pri_ldists, marg_ldists)
         end
         Û = Û / N
     end
