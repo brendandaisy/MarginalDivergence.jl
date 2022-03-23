@@ -178,11 +178,16 @@ function local_marginal_utility(
         end
         Û = mean(ureps)
     else
-        Û = 0
+        # U = Threads.Atomic{Float64}(0.)
+        # Threads.@threads for i=1:N
+        #     Threads.atomic_add!(U, sig(rand(true_ldist), pri_ldists, marg_ldists))
+        # end
+        # Û = U[] / N
+        ureps = Vector{Float64}(undef, N)
         Threads.@threads for i=1:N
-            Û += sig(rand(true_ldist), pri_ldists, marg_ldists)
+            ureps[i] = sig(rand(true_ldist), pri_ldists, marg_ldists)
         end
-        Û = Û / N
+        Û = mean(ureps)
     end
     return Û
 end
