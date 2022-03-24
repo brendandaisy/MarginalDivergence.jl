@@ -164,12 +164,10 @@ end
 
 function local_marginal_utility(
     true_sim, true_cond_sims, pri_sims, likelihood::Function; 
-    N=100, obs_params=(;), distributed=nprocs()>1
+    N=100, M=100, obs_params=(;), distributed=nprocs()>1
 )
-
-    marg_ldists = map(x->likelihood(x; obs_params...), true_cond_sims)
-    pri_ldists = map(x->likelihood(x; obs_params...), pri_sims)
     true_ldist = likelihood(true_sim; obs_params...)
+    bank_idxs = eachindex(true_cond_sims)
 
     if distributed
         ureps = pmap(1:N) do _ # expectation over ys
@@ -178,14 +176,13 @@ function local_marginal_utility(
         end
         Û = mean(ureps)
     else
-        # U = Threads.Atomic{Float64}(0.)
-        # Threads.@threads for i=1:N
-        #     Threads.atomic_add!(U, sig(rand(true_ldist), pri_ldists, marg_ldists))
-        # end
-        # Û = U[] / N
+        marg_ldists = Vector(undef, N)
+        pri_ldists = Vector(undef, N)
         ureps = Vector{Float64}(undef, N)
         Threads.@threads for i=1:N
-            ureps[i] = sig(rand(true_ldist), pri_ldists, marg_ldists)
+            marg_ldists[i] = map(s->likelihood(true_cond_sims[s]; obs_params...), sample(bank_idxs, M))
+            pri_ldists[i] = map(s->likelihood(pri_sims[s]; obs_params...), sample(bank_idxs, M))
+            ureps[i] = sig(rand(true_ldist), pri_ldists[i], marg_ldists[i])
         end
         Û = mean(ureps)
     end
