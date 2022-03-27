@@ -139,27 +139,26 @@ end
 
 function local_utility(
     true_sim, pri_sims, likelihood::Function; 
-    N=100, obs_params=(;), distributed=nprocs()>1
+    N=100, M=100, obs_params=(;), distributed=nprocs()>1
 )
 
-    pri_ldists = map(x->likelihood(x; obs_params...), pri_sims)
     true_ldist = likelihood(true_sim; obs_params...)
+    bank_idxs = eachindex(true_cond_sims)
 
     if distributed
         ureps = pmap(1:N) do _ # expectation over ys
             y = rand(true_ldist)
             sig(y, pri_ldists, true_ldist)
         end
-        Û = mean(ureps)
     else
-        Û = 0
+        pri_ldists = Vector(undef, N)
+        ureps = Vector{Float64}(undef, N)
         Threads.@threads for i=1:N
-            y = rand(true_ldist)
-            Û += sig(y, pri_ldists, true_ldist)
+            pri_ldists[i] = map(s->likelihood(pri_sims[s]; obs_params...), sample(bank_idxs, M))
+            ureps[i] = sig(rand(true_ldist), pri_ldists[i], true_ldist)
         end
-        Û = Û / N
     end
-    return Û
+    return mean(ureps)
 end
 
 function local_marginal_utility(
