@@ -143,7 +143,7 @@ function local_utility(
 )
 
     true_ldist = likelihood(true_sim; obs_params...)
-    bank_idxs = eachindex(true_cond_sims)
+    bank_idxs = eachindex(pri_sims)
 
     if distributed
         ureps = pmap(1:N) do _ # expectation over ys
