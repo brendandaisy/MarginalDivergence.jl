@@ -162,10 +162,11 @@ function local_utility(
 end
 
 function local_marginal_utility(
-    true_sim, true_cond_sims, pri_sims, likelihood::Function; 
-    N=100, M=100, obs_params=(;), distributed=nprocs()>1
-)
-    true_ldist = likelihood(true_sim; obs_params...)
+    true_sim, true_cond_sims, pri_sims, likelihood=(sim, m)->obs_t(sim, m, 1); 
+    N=100, M=100, obs_mod::OM=PoissonTests(100.), latent_obs_mod::Union{OM, Nothing}=nothing, distributed=nprocs()>1
+) where OM <: ObservationModel
+
+    true_ldist = likelihood(true_sim, obs_mod)
     bank_idxs = eachindex(true_cond_sims)
 
     if distributed
@@ -173,19 +174,19 @@ function local_marginal_utility(
             y = rand(true_ldist)
             sig(y, pri_ldists, marg_ldists)
         end
-        Û = mean(ureps)
     else
         marg_ldists = Vector(undef, N)
         pri_ldists = Vector(undef, N)
+        latent_obs = Vector(undef, N)
         ureps = Vector{Float64}(undef, N)
         Threads.@threads for i=1:N
-            marg_ldists[i] = map(s->likelihood(true_cond_sims[s]; obs_params...), sample(bank_idxs, M))
-            pri_ldists[i] = map(s->likelihood(pri_sims[s]; obs_params...), sample(bank_idxs, M))
+            latent_obs[i] = isnothing(latent_obs_mod) ? obs_mod : sample(latent_obs_mod)
+            marg_ldists[i] = map(s->likelihood(true_cond_sims[s], latent_obs[i]), sample(bank_idxs, M))
+            pri_ldists[i] = map(s->likelihood(pri_sims[s], latent_obs[i]), sample(bank_idxs, M))
             ureps[i] = sig(rand(true_ldist), pri_ldists[i], marg_ldists[i])
         end
-        Û = mean(ureps)
     end
-    return Û
+    return mean(ureps)
 end
 
 # function local_utility(precomps::Dict, likelihood; N=100) # Dict so u can bundle but still adjust e.g. t
