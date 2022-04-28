@@ -6,7 +6,6 @@ import IterTools: fieldvalues, properties
 using Distributed
 import Statistics: mean
 using Turing
-using StatsBase
 import StatsFuns: logsumexp
 
 export TParam, AbstractDEParamDistribution, ODEParamDistribution, DDEParamDistribution

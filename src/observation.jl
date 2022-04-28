@@ -4,7 +4,7 @@ export obs_t, obs_tspan
 
 abstract type ObservationModel end
 
-function sample(mod::OM) where OM <: ObservationModel
+function sample_obs_mod(mod::OM) where OM <: ObservationModel
     v = collect(fieldvalues(mod))
     newv = map(x->isa(x, Distribution) ? rand(x) : x, v)
     OM(newv...)

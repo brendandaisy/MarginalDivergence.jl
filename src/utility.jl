@@ -180,7 +180,7 @@ function local_marginal_utility(
         latent_obs = Vector(undef, N)
         ureps = Vector{Float64}(undef, N)
         Threads.@threads for i=1:N
-            latent_obs[i] = isnothing(latent_obs_mod) ? obs_mod : sample(latent_obs_mod)
+            latent_obs[i] = isnothing(latent_obs_mod) ? obs_mod : sample_obs_mod(latent_obs_mod)
             marg_ldists[i] = map(s->likelihood(true_cond_sims[s], latent_obs[i]), sample(bank_idxs, M))
             pri_ldists[i] = map(s->likelihood(pri_sims[s], latent_obs[i]), sample(bank_idxs, M))
             ureps[i] = sig(rand(true_ldist), pri_ldists[i], marg_ldists[i])
