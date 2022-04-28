@@ -38,8 +38,7 @@ function obs_t(sim, mod::PoissonBiasMult, t)
     Poisson(mod.b * mod.ntest * sim[t])
 end
 function obs_tspan(sim, mod::PoissonBiasMult, t)
-    η, b = param_sample(mod)
-    joint_poisson(b * η .* sim[1:t])
+    joint_poisson(mod.b * mod.ntest .* sim[1:t])
 end
 
 ###
