@@ -15,11 +15,11 @@ pfixed = SIRParamDistribution(S₀=0.6, β=1.25, α=0.2)
 pdist = SIRParamDistribution(S₀=Uniform(0.1, 0.9), β=Uniform(0.3, 3.), α=Uniform(0.05, 0.3))
 dekwargs = (saveat=1, save_idxs=2)
 true_sim = solve_de_problem(pdist, (S₀=0.6, β=1.25, α=0.2); dekwargs...).u
-cond_sims = simulate((S₀=0.6,), pdist, 1000; dekwargs...)
-pri_sims = simulate(pdist, 1000; dekwargs...)
+cond_sims = simulate((S₀=0.6,), pdist, 10_000; dekwargs...)
+pri_sims = simulate(pdist, 10_000; dekwargs...)
 local_marginal_utility(
-    true_sim, cond_sims, pri_sims, (sim, m)->obs_tspan(sim, m, 10); 
-    N=1000, M=700, obs_mod=PoissonBiasMult(1000., 3.), latent_obs_mod=PoissonBiasMult(1000., truncated(Gamma(2, 1), 1, Inf))
+    true_sim, cond_sims, pri_sims, (sim, m)->obs_tspan(sim, m, 20); 
+    N=2500, M=3000, true_obs_mod=PoissonBiasMult(1000., 3.), obs_mod=PoissonBiasMult(1000., truncated(Gamma(2, 1), 1, Inf))
 )
 
 # pfixed = SIRParamDistribution(stop=60., S₀=0.7, β=0.7)

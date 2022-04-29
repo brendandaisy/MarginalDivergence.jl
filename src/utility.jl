@@ -163,28 +163,20 @@ end
 
 function local_marginal_utility(
     true_sim, true_cond_sims, pri_sims, likelihood=(sim, m)->obs_t(sim, m, 1); 
-    N=100, M=100, obs_mod::OM=PoissonTests(100.), latent_obs_mod::Union{OM, Nothing}=nothing, distributed=nprocs()>1
+    N=100, M=100, true_obs_mod::OM=PoissonTests(100.), obs_mod::OM=true_obs_mod
 ) where OM <: ObservationModel
 
-    true_ldist = likelihood(true_sim, obs_mod)
-    bank_idxs = eachindex(true_cond_sims) # TODO
+    true_ldist = likelihood(true_sim, true_obs_mod)
+    bank_idxs = eachindex(true_cond_sims)
+    om_samps = [sample_obs_mod(obs_mod) for _=1:M]
 
-    if distributed
-        ureps = pmap(1:N) do _ # expectation over ys
-            y = rand(true_ldist)
-            sig(y, pri_ldists, marg_ldists)
-        end
-    else
-        marg_ldists = Vector(undef, N)
-        pri_ldists = Vector(undef, N)
-        latent_obs = Vector(undef, N)
-        ureps = Vector{Float64}(undef, N)
-        Threads.@threads for i=1:N
-            # latent_obs[i] = isnothing(latent_obs_mod) ? obs_mod : sample_obs_mod(latent_obs_mod)
-            marg_ldists[i] = map(s->likelihood(true_cond_sims[s], sample_obs_mod(latent_obs_mod)), sample(bank_idxs, M))
-            pri_ldists[i] = map(s->likelihood(pri_sims[s], sample_obs_mod(latent_obs_mod)), sample(bank_idxs, M))
-            ureps[i] = sig(rand(true_ldist), pri_ldists[i], marg_ldists[i])
-        end
+    marg_ldists = Vector(undef, N)
+    pri_ldists = Vector(undef, N)
+    ureps = Vector{Float64}(undef, N)
+    Threads.@threads for i=1:N
+        marg_ldists[i] = map((s, i)->likelihood(true_cond_sims[s], om_samps[i]), sample(bank_idxs, M), 1:M)
+        pri_ldists[i] = map((s, i)->likelihood(pri_sims[s], om_samps[i]), sample(bank_idxs, M), 1:M)
+        ureps[i] = sig(rand(true_ldist), pri_ldists[i], marg_ldists[i])
     end
     return mean(ureps)
 end

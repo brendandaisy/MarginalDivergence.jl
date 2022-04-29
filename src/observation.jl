@@ -1,5 +1,6 @@
 
 export ObservationModel, PoissonTests, PoissonBiasMult
+export sample_obs_mod
 export obs_t, obs_tspan
 
 abstract type ObservationModel end

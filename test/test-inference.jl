@@ -3,6 +3,7 @@ using Test
 using Distributions
 using OrdinaryDiffEq
 import Turing: summarystats
+using Random
 
 ## Setup
 sir_pdist = SIRParamDistribution(S₀=Beta(4, 1), β=TruncatedNormal(0.3, 0.5, 0, 2), α=0.15)
@@ -50,7 +51,7 @@ end
     fitchain(fit, pri_pdist)
 end
 
-@testset "Make sure importance sampling don't error" begin
+@testset "Make sure importance sampling methods don't error" begin
     rvs = random_vars(sir_pdist)
     pri_draws = [NamedTuple{keys(rvs)}(rand.(values(rvs))) for _=1:100]
     sim = simulate(pri_draws, sir_pdist; saveat=2, save_idxs=2)
@@ -69,3 +70,18 @@ end
     μ2 = importance_mean(W2, gsamples)
     @test all(values(μ) .≈ μ2)
 end
+
+Random.seed!(1234)
+pfixed = SIRParamDistribution(S₀=0.6, β=1.25, α=0.2)
+pdist = SIRParamDistribution(S₀=Uniform(0.1, 0.9), β=Uniform(0.3, 3.), α=Uniform(0.05, 0.3))
+dekwargs = (saveat=1, save_idxs=2)
+true_sim = solve_de_problem(pdist, (S₀=0.6, β=1.25, α=0.2); dekwargs...).u
+cond_sims = simulate((S₀=0.6,), pdist, 1000; dekwargs...)
+
+# true_obs_mod = PoissonBiasMult(1000., 3.)
+# obs_mod = PoissonBiasMult(1000., truncated(Gamma(2, 1), 1, Inf))
+# y = rand(obs_tspan(true_sim, true_obs_mod, 15))
+obs_mod = PoissonTests(1000.)
+om_samps = [sample_obs_mod(obs_mod) for _=1:1000];
+marg_ldists = map((s, m)->obs_tspan(s, m, 15), cond_sims, om_samps);
+marginal_likelihood(y, marg_ldists)

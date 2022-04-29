@@ -105,7 +105,7 @@ function de_problem(pdist::DDEParamDistribution, params=(;); dekwargs...)
     DDEProblem(de_func(pdist), init, h, ts, p; dekwargs...)
 end
 
-function solve_de_problem(pdist::AbstractDEParamDistribution, params; alg=Tsit5(), dekwargs...)
+function solve_de_problem(pdist::AbstractDEParamDistribution, params=(;); alg=Tsit5(), dekwargs...)
     solve(de_problem(pdist, params; dekwargs...), alg)
 end
 
@@ -135,7 +135,7 @@ end
 
 #= Include other methods for simulation and inference =#
 
-include("epi-odes.jl")
+include("epi-models.jl")
 include("simulation.jl")
 include("observation.jl")
 include("inference.jl")
