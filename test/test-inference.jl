@@ -1,4 +1,4 @@
-using DEParamDistributions
+using Revise, DEParamDistributions
 using Test
 using Distributions
 using OrdinaryDiffEq
@@ -71,17 +71,17 @@ end
     @test all(values(μ) .≈ μ2)
 end
 
-Random.seed!(1234)
-pfixed = SIRParamDistribution(S₀=0.6, β=1.25, α=0.2)
-pdist = SIRParamDistribution(S₀=Uniform(0.1, 0.9), β=Uniform(0.3, 3.), α=Uniform(0.05, 0.3))
-dekwargs = (saveat=1, save_idxs=2)
-true_sim = solve_de_problem(pdist, (S₀=0.6, β=1.25, α=0.2); dekwargs...).u
-cond_sims = simulate((S₀=0.6,), pdist, 1000; dekwargs...)
+# Random.seed!(1234)
+# pfixed = SIRParamDistribution(S₀=0.6, β=1.25, α=0.2)
+# pdist = SIRParamDistribution(S₀=Uniform(0.1, 0.9), β=Uniform(0.3, 3.), α=Uniform(0.05, 0.3))
+# dekwargs = (saveat=1, save_idxs=2)
+# true_sim = solve_de_problem(pdist, (S₀=0.6, β=1.25, α=0.2); dekwargs...).u
+# cond_sims = simulate((S₀=0.6,), pdist, 1000; dekwargs...)
 
 # true_obs_mod = PoissonBiasMult(1000., 3.)
 # obs_mod = PoissonBiasMult(1000., truncated(Gamma(2, 1), 1, Inf))
-# y = rand(obs_tspan(true_sim, true_obs_mod, 15))
-obs_mod = PoissonTests(1000.)
-om_samps = [sample_obs_mod(obs_mod) for _=1:1000];
-marg_ldists = map((s, m)->obs_tspan(s, m, 15), cond_sims, om_samps);
-marginal_likelihood(y, marg_ldists)
+# y = mean(obs_tspan(true_sim, true_obs_mod, 15))
+# obs_mod = PoissonTests(1000.)
+# om_samps = [sample_obs_mod(obs_mod) for _=1:1000];
+# marg_ldists = map((s, m)->obs_tspan(s, m, 15), cond_sims, om_samps);
+# marginal_likelihood(y, marg_ldists)

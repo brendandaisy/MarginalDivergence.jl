@@ -2,6 +2,8 @@
 DEParamDistributions = "0f28a210-f915-4f0a-9758-eb56fefcf495"
 DelayDiffEq = "bcd4f6db-9728-5f36-b5f7-82caef46ccdb"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+MonteCarloMeasurements = "0987c9cc-fe09-11e8-30f0-b96dd679fdca"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"

@@ -179,9 +179,9 @@ function marginal_likelihood(data, likdists::Vector{T}) where T <: Distribution
     -log(length(likdists)) + logsumexp(map(dist->logpdf(dist, data), likdists))
 end
 
-function marginal_likelihood(data, sim::EnsembleSolution, likelihood::Function)
-    map(x->pdf(likelihood(u), data), sim) |> mean
-end
+# function marginal_likelihood(data, sim::EnsembleSolution, likelihood::Function)
+#     map(x->pdf(likelihood(u), data), sim) |> mean
+# end
 
 #= Some common likelihood constructors =#
 
