@@ -1,4 +1,3 @@
-include("test-constructors.jl")
-include("test-simulation.jl")
+include("test-latent.jl")
 include("test-observation.jl")
-include("test-inference.jl")
+# include("test-inference.jl")

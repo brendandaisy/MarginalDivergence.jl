@@ -1,8 +1,6 @@
 
 export marginal_divergence, δ
 
-# TODO throughout, need to revisit type stability for e.g. Float32
-
 function _md_iter(y, xnum, xdenom, om::AbstractObservationModel)
     ℓnum = logpdf_particles(om, xnum, y)
     ℓdenom = logpdf_particles(om, xdenom, y)

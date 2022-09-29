@@ -15,15 +15,23 @@ de_func(::AbstractLatentModel) = error("de_func function not implemented")
 hist_func(::DDEModel) = error("hist_func function not implemented")
 
 """
-Return a `NamedTuple` of properties in pdist which are a `Particles`
+Return a `NamedTuple` of properties in `lm` which are a `Particles`
 """
 function peak_random_vars(lm::AbstractLatentModel)
     props = collect(properties(lm))
     NamedTuple(filter(x->isa(x[2], Particles), props))
 end
 
+"""
+Whether `lm` does not contain any fields that are a `Particles`, recusively
+"""
 allfixed(lm::AbstractLatentModel) = !has_particles(lm)
 
+"""
+Safely produce an `ODEProblem` from `m`, which can be solved, etc.
+
+Using `solve(::AbstractLatentModel, ...)` is preferred
+"""
 function de_problem(m::ODEModel; dekwargs...)
     init = initial_values(m)
     ts = timespan(m)
@@ -39,14 +47,19 @@ function de_problem(m::DDEModel; dekwargs...)
     DDEProblem(de_func(m), init, h, ts, p; dekwargs...)
 end
 
-function solve(m::AbstractLatentModel; alg=Tsit5(), dekwargs...)
-    DiffEqBase.solve(de_problem(m; dekwargs...), alg)
+function CommonSolve.solve(m::AbstractLatentModel; alg=Tsit5(), dekwargs...)
+    solve(de_problem(m; dekwargs...), alg)
 end
 
-function solve(m::M, θnew::NamedTuple; alg=Tsit5(), dekwargs...) where M <: AbstractLatentModel
+"""
+Return a solution to the latent model, where parameters in `θnew` replace the existing parameters in the model.
+
+This is useful, e.g. for quickly solving a version of the model where all params have been fixed.
+"""
+function CommonSolve.solve(m::M, θnew::NamedTuple; alg=Tsit5(), dekwargs...) where M <: AbstractLatentModel
     θnew = convert_tuple(m.start, θnew)
     props = properties(m) |> collect
     θrest = filter(tup->tup[1] ∉ keys(θnew), props) |> NamedTuple
     mnew = M(;θnew..., θrest...)
-    DiffEqBase.solve(de_problem(mnew; dekwargs...), alg)
+    solve(de_problem(mnew; dekwargs...), alg)
 end

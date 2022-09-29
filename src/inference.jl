@@ -64,8 +64,8 @@ export marginal_likelihood
 """
 Compute the (log) marginal likelihood log(p(y | d)) using precomputed likelihood distributions or from calling `likelihood` on each `sim`
 """
-function marginal_likelihood(log_lik::Particles)
-    m=nparticles(log_lik)
+function marginal_likelihood(log_lik::Particles{T, N}) where {T, N}
+    m = convert(T, N)
     -log(m) + logsumexp(log_lik.particles)
 end
 

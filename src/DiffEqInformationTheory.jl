@@ -1,13 +1,13 @@
 module DiffEqInformationTheory
 
-using OrdinaryDiffEq, DelayDiffEq
+using CommonSolve, OrdinaryDiffEq, DelayDiffEq
 using MonteCarloMeasurements
 using Distributions
 using Parameters
 using SpecialFunctions
-import IterTools: fieldvalues, properties
-import Statistics: mean
-import StatsFuns: logsumexp
+using IterTools
+# import Statistics: mean
+using StatsFuns
 
 export Param
 
@@ -21,10 +21,11 @@ convert_tuple(::T, t) where T <: Real = (;zip(keys(t), convert.(T, values(t)))..
 
 #= Include package components =#
 
-include("epi-models.jl")
 include("latent.jl")
 include("observation.jl")
 include("inference.jl")
 include("information.jl")
+
+include("epi-models.jl")
 
 end # module

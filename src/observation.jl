@@ -1,10 +1,11 @@
 
 export AbstractObservationModel
+export vecindex
 export observe_params, observe_dist, logpdf_particles
 
 export PoissonTests, ℓ_ind_poisson
 
-# vecindex = MonteCarloMeasurements.vecindex
+vecindex = MonteCarloMeasurements.vecindex
 
 #= Generating particles from an observation process =#
 
@@ -14,7 +15,7 @@ export PoissonTests, ℓ_ind_poisson
 
 abstract type AbstractObservationModel{T} end
 
-observe_params(::AbstractObservationModel, x::Vector{<:Real}) = x
+observe_params(::AbstractObservationModel, x::Vector{<:Real}) = (μ=x,)
 observe_params(m::AbstractObservationModel, x, ts) = observe_params(m, x[ts])
 # observe_params(x, m::AbstractObservationModel, t) = observe(m, x[t])
 
@@ -25,12 +26,12 @@ struct PoissonTests{T} <: AbstractObservationModel{T}
     ntest::Param{T}
 end
 
-observe_params(m::PoissonTests, x::Vector{<:Real}) = (λ=map(xt->xt * m.ntest, x),)
-logpdf_particles(m::PoissonTests, x::Vector{<:Real}, data) = ℓ_ind_poisson(observe_params(m, x).λ, data)
-observe_dist(::PoissonTests; λ) = product_distribution(Poisson.(λ))
+observe_params(m::PoissonTests, x::Vector{<:Param{T}}) where T<:Real = (λ=map(xt->xt * m.ntest, x),)
+logpdf_particles(m::PoissonTests, x::Vector{<:Param{T}}, data) where T<:Real= ℓ_ind_poisson(observe_params(m, x).λ, data, T)
+observe_dist(::PoissonTests; λ) = product_distribution(Poisson.(Float64.(λ))) # convert because rand won't work otherwise
 
-function ℓ_ind_poisson(λs, ks)
-    f(λ, k) = -λ + k * log(λ) - logfactorial(k)
+function ℓ_ind_poisson(λs, ks, ::Type{T}=Float64) where T
+    f(λ, k) = -λ + k * log(λ) - convert(T, logfactorial(k))
     sum(t->f(t[1], t[2]), zip(λs, ks))
 end
 

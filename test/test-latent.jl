@@ -1,8 +1,8 @@
 using Test
 using Revise
-using DEParamDistributions
+using DiffEqInformationTheory
 using Distributions, MonteCarloMeasurements
-using DelayDiffEq, OrdinaryDiffEq
+# using DelayDiffEq, OrdinaryDiffEq
 
 @testset "AbstractLatentModel general interface" begin
     struct EmptyModel{T<:Real} <: AbstractLatentModel{T}
@@ -24,6 +24,14 @@ end
 sir0 = SIRModel()
 sir1 = SIRModel{Float32}(S₀=0f0..1f0, β=Particles(TruncatedNormal(0.3f0, 0.1f0, 0f0, Inf32)))
 
+@testset "Misc. Convenience Methods for Latent Models" begin
+    vars = peak_random_vars(sir1)
+    @test names(vars) == (S₀, β)
+    @test eltype(vars) <: Particles{Float32}
+    @test length(peak_random_vars(sir0)) == 0
+    @test allfixed(sir0) & !allfixed(sir1)
+end
+
 @testset "SIR implementation" begin
     @test_throws MethodError SIRModel(α="hi")
     @test_throws UndefVarError SIRModel(α=0.2, β=0.3f0) # implicit promotion has not been implemented
@@ -39,15 +47,12 @@ end
     prob = de_problem(sir1; dense=false, saveat=1f0)
     @test keys(prob.kwargs) == (:dense, :saveat)
     @test values(values(prob.kwargs)) == (false, 1f0)
-    sol = solve(prob, Tsit5())
-    @test sol.retcode == :Success
     sol2 = solve(sir1; saveat=1f0)
     @test sol2.retcode == :Success
-    @test all(getindex.(sol.u, 2)[2:end] .≈ getindex.(sol2.u, 2)[2:end])
     sol3 = solve(sir1, (β=Int(1), S₀=0.5))
     @test all(eltype.(sol3.u) .== Float32)
     sol4 = solve(sir1, (;); saveat=1f0)
-    @test all(getindex.(sol.u, 2)[2:end] .≈ getindex.(sol4.u, 2)[2:end])
+    @test all(getindex.(sol2.u, 2)[2:end] .≈ getindex.(sol4.u, 2)[2:end])
 end
 
 # TODO implement and test other epi models
