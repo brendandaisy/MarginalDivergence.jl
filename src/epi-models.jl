@@ -1,4 +1,5 @@
-export SIRModel, SEIRModel, DSEIRModel
+export SIRModel
+# export SEIRModel, DSEIRModel
 
 #= SIR Model =#
 

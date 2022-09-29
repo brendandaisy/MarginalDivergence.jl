@@ -44,7 +44,13 @@ end
     sol2 = solve(sir1; saveat=1f0)
     @test sol2.retcode == :Success
     @test all(getindex.(sol.u, 2)[2:end] .≈ getindex.(sol2.u, 2)[2:end])
+    sol3 = solve(sir1, (β=Int(1), S₀=0.5))
+    @test all(eltype.(sol3.u) .== Float32)
+    sol4 = solve(sir1, (;); saveat=1f0)
+    @test all(getindex.(sol.u, 2)[2:end] .≈ getindex.(sol4.u, 2)[2:end])
 end
+
+# TODO implement and test other epi models
 
 # @testset "Constructing DDE Problems" begin
 #     blank_dseir = de_problem(DSEIRParamDistribution)

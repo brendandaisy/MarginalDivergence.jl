@@ -1,74 +1,48 @@
 
-export ObservationModel, PoissonTests, PoissonBiasMult
-export sample_obs_mod
-export obs_t, obs_tspan
+export AbstractObservationModel
+export observe_params, observe_dist, logpdf_particles
 
-abstract type ObservationModel end
+export PoissonTests, ℓ_ind_poisson
 
-function sample_obs_mod(mod::OM) where OM <: ObservationModel
-    v = collect(fieldvalues(mod))
-    newv = map(x->isa(x, Distribution) ? rand(x) : x, v)
-    OM(newv...)
+# vecindex = MonteCarloMeasurements.vecindex
+
+#= Generating particles from an observation process =#
+
+# TODO for now, assume that no uncertainty is created from the observation model, but this can be extended by modifying the latent process 
+# pushing things through ODE + modification with @bymap, as you tested
+
+
+abstract type AbstractObservationModel{T} end
+
+observe_params(::AbstractObservationModel, x::Vector{<:Real}) = x
+observe_params(m::AbstractObservationModel, x, ts) = observe_params(m, x[ts])
+# observe_params(x, m::AbstractObservationModel, t) = observe(m, x[t])
+
+observe_dist(::AbstractObservationModel; μ::Vector{S}) where {S<:AbstractFloat} = MvNormal(μ, 0.1)
+# observe_dist(m::AbstractObservationModel, ts; params...) where {S<:AbstractFloat} = observe_dist(m; μ[ts])
+
+struct PoissonTests{T} <: AbstractObservationModel{T}
+    ntest::Param{T}
 end
 
-function param_sample(mod::ObservationModel)
-    v = collect(fieldvalues(mod))
-    map(x->isa(x, Distribution) ? rand(x) : x, v)
+observe_params(m::PoissonTests, x::Vector{<:Real}) = (λ=map(xt->xt * m.ntest, x),)
+logpdf_particles(m::PoissonTests, x::Vector{<:Real}, data) = ℓ_ind_poisson(observe_params(m, x).λ, data)
+observe_dist(::PoissonTests; λ) = product_distribution(Poisson.(λ))
+
+function ℓ_ind_poisson(λs, ks)
+    f(λ, k) = -λ + k * log(λ) - logfactorial(k)
+    sum(t->f(t[1], t[2]), zip(λs, ks))
 end
 
-struct PoissonTests <: ObservationModel
-    ntest::TParam
-end
-
-function obs_t(sim, mod::PoissonTests, t)
-    # η = param_sample(mod)
-    Poisson(mod.ntest * sim[t])
-end
-function obs_tspan(sim, mod::PoissonTests, t)
-    # η = param_sample(mod)
-    joint_poisson(mod.ntest .* sim[1:t])
-end
-
-struct PoissonBiasMult <: ObservationModel
-    ntest::TParam
-    b::TParam
-end
-
-function obs_t(sim, mod::PoissonBiasMult, t)
-    # η, b = param_sample(mod)
-    Poisson(mod.b * mod.ntest * sim[t])
-end
-function obs_tspan(sim, mod::PoissonBiasMult, t)
-    joint_poisson(mod.b * mod.ntest .* sim[1:t])
-end
-
-###
-
-# struct PoissonTests <: ObservationModel
-#     ntest::Float64
+# function ℓ_force_particles(p::AbstractArray{Particles{T, N}}, data, dfunc; joint=true) where {T, N}
+#     if joint
+#         l = x->logpdf(dfunc(x), data)
+#     else
+#         l = x->logpdf.(dfunc.(x), data)
+#     end
+#     ret = map(1:nparticles(p[1])) do i
+#         x = vecindex.(p,i) # vector resulting from pushing single particle thru latent model
+#         sum(l(x))
+#     end
+#     return Particles{T, N}(ret)
 # end
-
-# likelihood(sim, mod::PoissonTests) = product_distribution(Poisson.(mod.ntest .* vec(sim)))
-
-# struct PoissonBias <: ObservationModel
-#     ntest::Float64
-#     b::Distribution
-#     popsize::Float64
-# end
-
-# function likelihood(sim, mod::PoissonBias; b=rand(mod.b))
-#     λ₊ = sim * mod.ntest * (mod.popsize/mod.ntest)^b
-#     Poisson.(λ₊)
-# end
-
-# function single_obs(sim, mod::PoissonBias, t; b=rand(mod.b))
-#     λ₊ = sim[t] * mod.ntest * (mod.popsize/mod.ntest)^b
-#     Poisson(λ₊)
-# end
-
-# function inct_obs(sim, mod::PoissonBias, tspan; b=rand(mod.b))
-#     λ₊ = sim[1:tspan] * mod.ntest * (mod.popsize/mod.ntest)^b
-#     Poisson.(λ₊)
-# end
-    
-
