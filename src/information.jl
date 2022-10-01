@@ -12,19 +12,19 @@ function marginal_divergence(ϕ::Tuple, θfixed::NamedTuple, lm::LM, om::Abstrac
     xtrue = solve(lm, θfixed; saveat, dekwargs...).u
     ts = length(saveat) > 1 ? saveat : Int.(lm.start:saveat:lm.stop).+1
     y = Particles(N, observe_dist(om; observe_params(om, xtrue)...))[ts]
-    xpart = solve(lm, ϕtup; saveat, dekwargs...).u
+    xcond = solve(lm, ϕtup; saveat, dekwargs...).u
     xprior = solve(lm; saveat, dekwargs...).u
-    return marginal_divergence(y, xpart, xprior, om)
+    return marginal_divergence(y, xcond, xprior, om)
 end
 
 δ(ϕ, θfixed, lm, om; N=2000, saveat=1, dekwargs...) = marginal_divergence(ϕ, θfixed, lm, om; N, saveat, dekwargs...)
 
 function marginal_divergence(
-    y::Vector{Particles{T, N}}, xpart::Union{Vector{<:AbstractFloat}, Vector{Particles{S, M}}}, 
+    y::Vector{Particles{T, N}}, xcond::Union{Vector{<:AbstractFloat}, Vector{Particles{S, M}}}, 
     xprior::Vector{Particles{S, M}}, om::AbstractObservationModel
 ) where {T, S, N, M}
-    md_iter = y->_md_iter(y, xpart, xprior, om)
-    bymap(md_iter, y) |> pmean
+    md_iter = y->_md_iter(y, xcond, xprior, om; M)
+    bypmap(md_iter, y) |> pmean
 end
 
 # export all_designs_precomps, local_utility, local_marginal_utility

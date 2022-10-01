@@ -25,3 +25,4 @@ docs/site/
 # environment.
 Manifest.toml
 src/vs.code-workspace
+.vscode/settings.json
