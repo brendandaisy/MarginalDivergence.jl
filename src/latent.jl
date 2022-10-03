@@ -22,6 +22,11 @@ function peak_random_vars(lm::AbstractLatentModel)
     NamedTuple(filter(x->isa(x[2], Particles), props))
 end
 
+function Base.string(lm::LM) where {LM<:AbstractLatentModel}
+    valstr = join(fieldvalues(lm), ", ")
+    "$LM($valstr)" 
+end
+
 """
 Whether `lm` does not contain any fields that are a `Particles`, recusively
 """

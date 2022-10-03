@@ -45,7 +45,7 @@ inf_true = solve(SIRModel{Float32}(;θtrue...); saveat=0.5, save_idxs=2).u # 60 
     marginal_likelihood(lp)
 end
 ```
-
+# TODO: this should be split up into precomputation and actual comp. of marginal_likelihood
 ```julia; eval=false
 reps = map(range(100, 30_000, length=20)) do M
     M = floor(Int, M)

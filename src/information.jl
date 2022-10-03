@@ -23,7 +23,7 @@ function marginal_divergence(
     y::Vector{Particles{T, N}}, xcond::Union{Vector{<:AbstractFloat}, Vector{Particles{S, M}}}, 
     xprior::Vector{Particles{S, M}}, om::AbstractObservationModel
 ) where {T, S, N, M}
-    md_iter = y->_md_iter(y, xcond, xprior, om; M)
+    md_iter = y->_md_iter(y, xcond, xprior, om)
     bypmap(md_iter, y) |> pmean
 end
 
