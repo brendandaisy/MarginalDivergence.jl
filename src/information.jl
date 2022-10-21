@@ -27,6 +27,16 @@ function marginal_divergence(
     bypmap(md_iter, y) |> pmean
 end
 
+# TODO below version doesnt work - why???
+# I would like this to work, so write a test/fix this at some point
+function marginal_divergence(
+    y::Vector{Particles{T, N}}, xcond::Union{Vector{<:AbstractFloat}, Vector{Particles{S, M}}}, om::AbstractObservationModel;
+    ℓp_of_y_precomp
+) where {T, S, N, M}
+    md_iter = y->marginal_likelihood(logpdf_particles(om, xcond, y)) - ℓp_of_y_precomp
+    bypmap(md_iter, y) |> pmean
+end
+
 # export all_designs_precomps, local_utility, local_marginal_utility
 
 # nsse(θ, θest) = -sum((θ .- θest).^2)
