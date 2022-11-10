@@ -1,5 +1,5 @@
 export AbstractLatentModel, ODEModel, DDEModel
-export peak_random_vars, allfixed
+export peak_random_vars, allfixed, resample
 export timespan, initial_values, parameters, hist_func, de_func, de_problem, solve
 
 abstract type AbstractLatentModel{T} end
@@ -28,9 +28,17 @@ function Base.string(lm::LM) where {LM<:AbstractLatentModel}
 end
 
 """
-Whether `lm` does not contain any fields that are a `Particles`, recusively
+Whether `lm` does not contain any fields that are a `Particles`, recursively
 """
 allfixed(lm::AbstractLatentModel) = !has_particles(lm)
+
+# MonteCarloMeasurements.nparticles(lm::AbstractLatentModel) = allfixed(lm) ? 0 : nparticles(peak_random_vars(lm)[1])
+
+function resample(lm::LM, n) where LM <: AbstractLatentModel
+    vars = peak_random_vars(lm)
+    newvars = NamedTuple{keys(vars)}(bootstrap(vcat(vars...), n))
+    LM(;newvars...)
+end
 
 """
 Safely produce an `ODEProblem` from `m`, which can be solved, etc.

@@ -5,7 +5,8 @@ using MonteCarloMeasurements, Distributions
 
 @testset "Biased Coins" begin
     struct Coins <: AbstractObservationModel{Int8} end
-    DiffEqInformationTheory.logpdf_particles(::Coins, x::Vector{<:Real}, data) = sum(t->t[2]*log(t[1]) + (1 - t[2])*log(1-t[1]), zip(x, data))
+    DiffEqInformationTheory.logpdf_particles(::Coins, x::Vector{<:Real}, data) = 
+        sum(t->t[2]*log(t[1]) + (1 - t[2])*log(1-t[1]), zip(x, data))
     DiffEqInformationTheory.observe_dist(::Coins; p) = product_distribution(Bernoulli.(p))
 
     om = Coins()
