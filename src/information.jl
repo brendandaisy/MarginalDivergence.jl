@@ -1,5 +1,5 @@
 
-export marginal_divergence, δ
+export marginal_divergence, δ, mean_marginal_likelihood
 
 function _md_iter(y, xnum, xdenom, om::AbstractObservationModel)
     ℓnum = logpdf_particles(om, xnum, y)
@@ -27,74 +27,12 @@ function marginal_divergence(
     bypmap(md_iter, y) |> pmean
 end
 
-# TODO below version doesnt work - why???
-# I would like this to work, so write a test/fix this at some point
-function marginal_divergence(
-    y::Vector{Particles{T, N}}, xcond::Union{Vector{<:AbstractFloat}, Vector{Particles{S, M}}}, om::AbstractObservationModel;
-    ℓp_of_y_precomp
+function mean_marginal_likelihood(
+    y::Vector{Particles{T, N}}, x::Union{Vector{<:AbstractFloat}, Vector{Particles{S, M}}}, om::AbstractObservationModel
 ) where {T, S, N, M}
-    md_iter = y->marginal_likelihood(logpdf_particles(om, xcond, y)) - ℓp_of_y_precomp
-    bypmap(md_iter, y) |> pmean
+    ml_iter = y->marginal_likelihood(logpdf_particles(om, x, y))
+    bypmap(ml_iter, y) |> pmean
 end
-
-# export all_designs_precomps, local_utility, local_marginal_utility
-
-# nsse(θ, θest) = -sum((θ .- θest).^2)
-
-# function initial_fit(x, pdist, likelihood; dekwargs...)
-#     y₀ = rand(likelihood(x))
-#     ch = sample_mcmc(y₀, pdist, likelihood; arraylik=false, dekwargs...)
-#     fitchain(ch, pdist)
-# end
-
-# function get_nsse(y, θtrue, likdists; gsamples, pri_dist, gdist)
-#     W = importance_weights(y, likdists; gsamples, pri_dist, gdist)
-#     nsse(θtrue, importance_mean(W, gsamples))
-# end
-
-# function sig(y, pri_ldists, true_ldist)
-#     log_evidence = marginal_likelihood(y, pri_ldists)
-#     logpdf(true_ldist, y) - log_evidence
-# end
-
-# function sig(y, pri_ldists, true_ldists::Vector)
-#     log_cond = marginal_likelihood(y, true_ldists) # marginalize out free param
-#     log_evidence = marginal_likelihood(y, pri_ldists)
-#     log_cond - log_evidence
-# end
-
-# function nsse_precomps(xtrue, pdist, likelihood=joint_poisson; Ng=2000, dekwargs...)  
-#     ## fit a initial model for the IS sampling distribution
-#     ## TODO this isn't a sound approach and should be fixed at some point
-#     gdist = initial_fit(10 .* xtrue, pdist, likelihood; dekwargs...)
-#     names = random_vars(pdist) |> keys
-#     ## Get Ng samples from the target distribution g
-#     postdraw = map(eachcol(rand(gdist, Ng))) do draw
-#         NamedTuple{names}(draw)
-#     end
-#     gsims = simulate(postdraw, pdist; dekwargs...)
-#     pri_dist = joint_prior(pdist)
-#     gsamples = map(x->vcat(values(x)...), postdraw)
-#     return (gsamples, pri_dist, gdist, gsims)
-# end
-
-# # function all_designs_precomps(
-# #     θtrue, pdist::AbstractDEParamDistribution; # signal here is where lik get wrapped
-# #     umap=(SIG=100, NSSE=100), dekwargs...
-# # )
-# #     ret = Dict()
-# #     # xtrue = solve(de_problem(pdist, θtrue; dekwargs...), Tsit5()).u
-# #     # if :NSSE ∈ keys(umap)
-# #     #     nm = (:gsamples, :pri_dist, :gdist, :gsims)
-# #     #     vals = nsse_precomps(xtrue, pdist, likelihood; Ng=umap.NSSE, dekwargs...)
-# #     #     ret[:NSSE] = NamedTuple{nm}(vals)
-# #     # end
-# #     if :SIG ∈ keys(umap)
-# #         psims = simulate(pdist, umap.SIG; dekwargs...)
-# #         ret[:SIG] = (;psims)
-# #     end
-# #     return ret
-# # end
 
 # function local_utility(
 #     θtrue, pdist::AbstractDEParamDistribution, dlik; # signal here is where lik get wrapped

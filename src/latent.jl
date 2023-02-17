@@ -52,15 +52,15 @@ function de_problem(m::ODEModel; dekwargs...)
     ODEProblem(de_func(m), init, ts, p; dekwargs...)
 end
 
-function de_problem(m::DDEModel; dekwargs...)
-    init = initial_values(m)
-    ts = timespan(m)
-    p = parameters(m)
-    h = hist_func(m)
-    DDEProblem(de_func(m), init, h, ts, p; dekwargs...)
-end
+# function de_problem(m::DDEModel; dekwargs...)
+#     init = initial_values(m)
+#     ts = timespan(m)
+#     p = parameters(m)
+#     h = hist_func(m)
+#     DDEProblem(de_func(m), init, h, ts, p; dekwargs...)
+# end
 
-function CommonSolve.solve(m::AbstractLatentModel; alg=Tsit5(), dekwargs...)
+function CommonSolve.solve(m::M; alg=Tsit5(), dekwargs...) where M <: AbstractLatentModel
     solve(de_problem(m; dekwargs...), alg)
 end
 

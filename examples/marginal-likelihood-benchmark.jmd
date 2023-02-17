@@ -33,24 +33,33 @@ inf_true = solve(SIRModel{Float32}(;θtrue...); saveat=0.5, save_idxs=2).u # 60 
 ```
 
 ```julia
-@everywhere function marg_lik(y, om, θprior, M)
-    sir = SIRModel{Float32}(
+function marg_lik(y, inf, om)
+    lp = logpdf_particles(om, inf, y)
+    marginal_likelihood(lp)
+end
+
+function resamp_marg_lik(y, om, θprior, M)
+    lm = SIRModel{Float32}(
         S₀=Particles(M, θprior.S₀), 
         β=Particles(M, θprior.β), 
         α=Particles(M, θprior.α)
     )
-
-    inf = solve(sir; saveat=0.5, save_idxs=2).u
-    lp = logpdf_particles(om, inf, y)
-    marginal_likelihood(lp)
+    inf = solve(lm; saveat=0.5, save_idxs=2).u
+    marg_lik(y, inf, om)
 end
 ```
 # TODO: this should be split up into precomputation and actual comp. of marginal_likelihood
 ```julia; eval=false
-reps = map(range(100, 30_000, length=20)) do M
+reps = map(range(100, 40_000, length=20)) do M
     M = floor(Int, M)
-    a = @benchmark marg_lik($ysamp, $obs_mod, $θprior, $M)
-    v = pmap(_->marg_lik(ysamp, obs_mod, θprior, M), 1:100)
+    lat_mod = SIRModel{Float32}(
+        S₀=Particles(M, θprior.S₀), 
+        β=Particles(M, θprior.β), 
+        α=Particles(M, θprior.α)
+    )
+    inf = solve(lat_mod; saveat=0.5, save_idxs=2).u
+    a = @benchmark marg_lik($ysamp, $inf, $obs_mod)
+    v = map(_->resamp_marg_lik(ysamp, obs_mod, θprior, M), 1:100)
     (M=M, min_time=minimum(a).time, mean_time=mean(a).time, mean_res=mean(v), std_res=std(v))
 end
 
@@ -62,8 +71,8 @@ using CSV, DataFrames
 
 reps = CSV.read("ml-bench-res.csv", DataFrame)
 plot(
-    plot(reps.M, (10^-9*reps.mean_time)/60, yaxis=("Avg. runtime (sec.)")),
-    plot(reps.M, reps.std_res, yaxis=("Std. error")),
+    plot(reps.M, (10^-9*reps.mean_time)/60, yaxis=("Avg. runtime (sec.)"), lab=""),
+    plot(reps.M, reps.std_res, yaxis=("Std. error", :log), lab=""),
     xaxis=("M")
 )
 ```

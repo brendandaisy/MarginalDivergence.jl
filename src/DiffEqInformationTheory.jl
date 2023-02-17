@@ -1,6 +1,6 @@
 module DiffEqInformationTheory
 
-using CommonSolve, OrdinaryDiffEq, DelayDiffEq
+using CommonSolve, OrdinaryDiffEq
 using MonteCarloMeasurements
 using Distributions
 using Parameters

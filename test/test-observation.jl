@@ -21,6 +21,7 @@ using MonteCarloMeasurements, Distributions
     xpart = [0, Particles(10_000, Uniform(0, 1))]
 
     md = marginal_divergence(ytrue, xpart, x, om)
+    md2 = marginal_divergence(ytrue, xpart, om; ℓp_of_y_precomp=ℓlik)
     # ytrue is [0, 0] or [0,1], both of which have MℓL=log(1/2), so 
     @test md ≈ (log(1/2) - log(1/4))
 end
