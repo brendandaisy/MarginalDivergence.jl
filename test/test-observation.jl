@@ -1,13 +1,15 @@
 using Revise
 using Test
-using DiffEqInformationTheory
+using MarginalDivergence
 using MonteCarloMeasurements, Distributions
 
 @testset "Biased Coins" begin
     struct Coins <: AbstractObservationModel{Int8} end
-    DiffEqInformationTheory.logpdf_particles(::Coins, x::Vector{<:Real}, data) = 
+    
+    function MarginalDivergence.logpdf_particles(::Coins, x::Vector{<:Real}, data)
         sum(t->t[2]*log(t[1]) + (1 - t[2])*log(1-t[1]), zip(x, data))
-    DiffEqInformationTheory.observe_dist(::Coins; p) = product_distribution(Bernoulli.(p))
+    end
+    MarginalDivergence.observe_dist(::Coins; p) = product_distribution(Bernoulli.(p))
 
     om = Coins()
     x = outer_product(fill(Uniform(0, 1), 2), 10_000)
@@ -26,10 +28,10 @@ using MonteCarloMeasurements, Distributions
     @test md ≈ (log(1/2) - log(1/4))
 end
 
-@testset "Parametric types are propogated through observation" begin
+@testset "Latent parameter types are propogated through observation" begin
     m = SIRModel{Float32}(S₀=0f0..1f0, β=Particles(TruncatedNormal(0.3f0, 0.1f0, 0f0, Inf32)))
     inf = solve(m; save_idxs=2, saveat=1).u
-    om = PoissonTests(100)
+    om = PoissonRate(100)
     par = observe_params(om, inf)
     @test eltype(par.λ) <: Particles{Float32}
     ysamp = rand(observe_dist(om; λ=vecindex(par.λ, 1)))
@@ -46,7 +48,7 @@ end
 @testset "Parametric types are propogated through information methods" begin
     m = SIRModel{Float32}(S₀=0f0..1f0, β=Particles(TruncatedNormal(0.3f0, 0.1f0, 0f0, Inf32)))
     inf = solve(m; save_idxs=2, saveat=1).u
-    om = PoissonTests(100)
+    om = PoissonRate(100)
     
     md = marginal_divergence((:β, :S₀), (S₀=0.7f0, β=0.3f0), m, om; save_idxs=2, saveat=1)
     @test md isa Float32
@@ -55,7 +57,7 @@ end
 @testset "Sanity checks with SIR model and marginal divergence" begin
     m = SIRModel(S₀=0..1, β=Particles(TruncatedNormal(0.3, 0.1, 0, Inf)))
     inf = solve(m; save_idxs=2, saveat=1).u
-    om = PoissonTests(100)
+    om = PoissonRate(100)
     λsamp = observe_params(om, inf, 1:2)
     ysamp = rand(observe_dist(om; λ=100*Matrix(inf)[1,1:2]), 100_000)
     μy = mean.(eachrow(ysamp))
@@ -80,10 +82,10 @@ end
 @testset "PoissonTest with unknown testing rate" begin
     m = SIRModel(S₀=0..1, β=Particles(TruncatedNormal(0.3, 0.1, 0, Inf)))
     inf = solve(m; save_idxs=2, saveat=1).u
-    om = PoissonTests(Particles(DiscreteUniform(100, 200)))
+    om = PoissonRate(Particles(DiscreteUniform(100, 200)))
 
     p = observe_params(om, inf)
-    ysamp = rand(observe_dist(om; λ=Matrix(p.λ)[1,:]))
+    ysamp = rand(observe_dist(om, Matrix(inf)[1,:]))
     ℓlik = logpdf_particles(om, inf, ysamp)
     @test (@prob ℓlik > 0) == 0
     marginal_likelihood(ℓlik)

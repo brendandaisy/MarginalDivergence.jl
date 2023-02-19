@@ -6,8 +6,7 @@ abstract type AbstractLatentModel{T} end
 abstract type ODEModel{T} <: AbstractLatentModel{T} end
 abstract type DDEModel{T} <: AbstractLatentModel{T} end
 
-#= Convenience wrappers for AbstractDEParamDistribution interface =#
-
+#= Fallback methods for AbstractLatentModel interface =#
 timespan(::AbstractLatentModel) = error("timespan function not implemented")
 initial_values(::AbstractLatentModel) = error("initial_values function not implemented")
 parameters(::AbstractLatentModel) = error("parameters function not implemented")
@@ -41,9 +40,9 @@ function resample(lm::LM, n) where LM <: AbstractLatentModel
 end
 
 """
-Safely produce an `ODEProblem` from `m`, which can be solved, etc.
+Conveniently produce an `ODEProblem` from `m` by automatically matching `initial_values`, `timespan` which can be solved, etc.
 
-Using `solve(::AbstractLatentModel, ...)` is preferred
+Using `solve(::AbstractLatentModel, ...)` directly is preferred
 """
 function de_problem(m::ODEModel; dekwargs...)
     init = initial_values(m)

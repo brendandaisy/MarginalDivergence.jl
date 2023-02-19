@@ -1,34 +1,56 @@
 
 export AbstractObservationModel
 export vecindex
-export observe_params, observe_dist, logpdf_particles
+export observe_params, observation, observe_dist, logpdf_particles, marginal_likelihood
 
-export PoissonTests, ℓ_ind_poisson
+export PoissonRate, ℓ_ind_poisson
 
 vecindex = MonteCarloMeasurements.vecindex
 
 #= Generating particles from an observation process =#
 
-# TODO for now, assume that no uncertainty is created from the observation model, but this can be extended by modifying the latent process 
-# pushing things through ODE + modification with @bymap, as you tested
-
-
 abstract type AbstractObservationModel{T} end
 
-observe_params(::AbstractObservationModel, x::Vector{<:Real}) = (μ=x,)
+observe_params(::AbstractObservationModel, x) = error("`observe params` not implemented")
+observation(::AbstractObservationModel, x) = error("`observation` not implemented")
+logpdf_particles(::AbstractObservationModel, x, data) = error("`logpdf_particles` not implemented")
+
 observe_params(m::AbstractObservationModel, x, ts) = observe_params(m, x[ts])
-# observe_params(x, m::AbstractObservationModel, t) = observe(m, x[t])
 
-observe_dist(::AbstractObservationModel; μ::Vector{S}) where {S<:AbstractFloat} = MvNormal(μ, 0.1)
-# observe_dist(m::AbstractObservationModel, ts; params...) where {S<:AbstractFloat} = observe_dist(m; μ[ts])
+function observe_dist(m::AbstractObservationModel, x::VecRealOrParticles)
+    obs_p = observe_params(m, x)
+    obs_p_avg = map(_marg_obs_param, values(obs_p))
+    product_distribution(observation(m, obs_p_avg...))
+end
 
-struct PoissonTests{T} <: AbstractObservationModel{T}
+_marg_obs_param(x) = Float64.(x) # default no marginalization (when x is fixed vector)
+_marg_obs_param(x::Vector{<:Particles}) = Float64.(pmean.(x)) # convert because rand may not work otherwise
+
+"""
+Compute the (log) marginal likelihood log(p(y | d)) using precomputed likelihood distributions or from calling `likelihood` on each `sim`
+"""
+function marginal_likelihood(log_lik::Particles{T, N}) where {T, N}
+    m = convert(T, N)
+    -log(m) + logsumexp(log_lik.particles)
+end
+
+# for the case when nothing is marginalized (TODO not very good naming convention...)
+marginal_likelihood(log_lik::AbstractFloat) = log_lik
+
+#= Pre-provided Observation Models =#
+  
+"""
+Poisson distributed observations, multiplying latent process by "testing" rate `ntest`
+
+Testing is (possibly unknown) fixed rate across each observation time point
+"""
+struct PoissonRate{T} <: AbstractObservationModel{T}
     ntest::Param{T}
 end
 
-observe_params(m::PoissonTests, x::Vector{<:Param{T}}) where T<:Real = (λ=map(xt->xt * m.ntest, x),)
-logpdf_particles(m::PoissonTests, x::Vector{<:Param{T}}, data) where T<:Real= ℓ_ind_poisson(observe_params(m, x).λ, data, T)
-observe_dist(::PoissonTests; λ) = product_distribution(Poisson.(Float64.(λ))) # convert because rand won't work otherwise
+observation(::PoissonRate, λ) = Poisson.(λ)
+observe_params(m::PoissonRate, x::VecRealOrParticles) = (λ=x * m.ntest,)
+logpdf_particles(m::PoissonRate, x::VecRealOrParticles{T, N}, data) where {T, N} = ℓ_ind_poisson(observe_params(m, x).λ, data, T)
 
 function ℓ_ind_poisson(λs, ks, ::Type{T}=Float64) where T
     f(λ, k) = -λ + k * log(λ) - convert(T, logfactorial(k))
