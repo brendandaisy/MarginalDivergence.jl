@@ -69,7 +69,7 @@ Return a solution to the latent model, where parameters in `θnew` replace the e
 This is useful, e.g. for quickly solving a version of the model where all params have been fixed.
 """
 function CommonSolve.solve(m::M, θnew::NamedTuple; alg=Tsit5(), dekwargs...) where M <: AbstractLatentModel
-    θnew = convert_tuple(m.start, θnew)
+    # θnew = convert_tuple(m.start, θnew)
     props = properties(m) |> collect
     θrest = filter(tup->tup[1] ∉ keys(θnew), props) |> NamedTuple
     mnew = M(;θnew..., θrest...)

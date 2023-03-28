@@ -11,7 +11,7 @@ end
 The Restricted Marginal Divergence (RMD). If ϕ are The RMD is the difference between marginal log likelihoods of these two,
 on average over data `y` originating from a true process.
 """
-function marginal_divergence(ϕ::Tuple, θfixed::NamedTuple, lm::LM, om::AbstractObservationModel; N=2000, saveat=1, dekwargs...) where {LM<:AbstractLatentModel}
+function marginal_divergence(ϕ::Tuple, θfixed::NamedTuple, lm::LM, om::AbstractObservationModel; N=3000, saveat=1, dekwargs...) where {LM<:AbstractLatentModel}
     ϕtup = NamedTuple{ϕ}(map(x->get(θfixed, x, nothing), ϕ))
     xtrue = solve(lm, θfixed; saveat, dekwargs...).u
     ts = length(saveat) > 1 ? saveat : Int.(lm.start:saveat:lm.stop) .+ 1
@@ -27,10 +27,13 @@ and `xprior` is simulations sampled from the full prior latent process. The RMD 
 on average over data `y` originating from a true process.
 """
 function marginal_divergence(
-    y::Vector{Particles{T, N}}, xcond::VecRealOrParticles{S, M}, xprior::VecRealOrParticles{S, M}, om::AbstractObservationModel
-) where {T, S, N, M}
-    md_iter = y->_md_iter(y, xcond, xprior, om)
-    bypmap(md_iter, y) |> pmean
+    y::VecOrMat, xcond::VecRealOrParticles{T, S}, xprior::VecRealOrParticles{T, S}, om::AbstractObservationModel; N=3000
+) where {T, S}
+    mds = zeros(N)
+    Threads.@threads for i=1:N
+        mds[i] = _md_iter(rand.(y), xcond, xprior, om)
+    end
+    mean(mds)
 end
 
 """

@@ -21,11 +21,22 @@ using MonteCarloMeasurements, Distributions
     xtrue = [0, 0.5]
     ytrue = Particles(observe_dist(om; p=xtrue))
     xpart = [0, Particles(10_000, Uniform(0, 1))]
+    # TODO: seeds
 
     md = marginal_divergence(ytrue, xpart, x, om)
     md2 = marginal_divergence(ytrue, xpart, om; ℓp_of_y_precomp=ℓlik)
     # ytrue is [0, 0] or [0,1], both of which have MℓL=log(1/2), so 
     @test md ≈ (log(1/2) - log(1/4))
+end
+
+# TODODODODODO
+@testset "Propogating uncertainty from observation process works as expected" begin
+    x = [1, 2, 3] .± 0.3
+    y = (100..200) * x
+    z = y * x
+    @test all(x[1].particles .* y.particles .== z[1].particles)
+    y = (100..200) * x # resample y
+    @test !all(x[1].particles .* y.particles .== z[1].particles)
 end
 
 @testset "Latent parameter types are propogated through observation" begin
