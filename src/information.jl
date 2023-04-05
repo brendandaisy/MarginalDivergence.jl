@@ -7,6 +7,20 @@ function _md_iter(y, xnum, xdenom, om::AbstractObservationModel)
     marginal_likelihood(ℓnum) - marginal_likelihood(ℓdenom)
 end
 
+# function solve_adj(lm::M, θ, prob; dekwargs...) where M <: AbstractLatentModel
+#     θnew = NamedTuple{θnames}(θ)
+#     _lm = M(;θnew..., θrest...)
+#     _prob = de_problem(lm; dekwargs...)
+#     solve(_lm; dekwargs...).u
+# end
+
+# function info_mat(lm, om, θtrue; dekwargs...)
+#     x = solve(lm, θtrue; dekwargs...).u
+#     O = obs_info_mat(om, x)
+#     J = ForwardDiff.jacobian(p->solve_adj(lm, p, keys(θtrue); dekwargs...), vcat(values(θtrue)...))
+#     return J' * O * J
+# end
+
 """
 The Restricted Marginal Divergence (RMD). If ϕ are The RMD is the difference between marginal log likelihoods of these two,
 on average over data `y` originating from a true process.
@@ -35,6 +49,17 @@ function marginal_divergence(
     end
     mean(mds)
 end
+
+# uidx and F should match order in θtrue
+# function approx_marginal_divergence(lm, om, θtrue, uprior, uidx, F=nothing; dekwargs...)
+#     JOJ = info_mat(lm, om, θtrue; dekwargs...)
+#     if F === nothing
+#         Iu = JOJ
+#     else
+#         Iu = F' * JOJ * F
+#     end
+#     -0.5 * (log(inv(Iu)[uidx, uidx]) - log(2*π)) - log(uprior)
+# end
 
 """
 Compute expected log likelihood, marginalizing over whatever simulations are represented by `x`, with the expectation over `y`

@@ -8,6 +8,8 @@ using SpecialFunctions
 using IterTools
 # import Statistics: mean
 using StatsFuns
+using ForwardDiff
+using LinearAlgebra
 
 export Param, VecRealOrParticles
 
@@ -18,14 +20,13 @@ Param{T} = Union{T, Particles{T}} where T <: Real
 
 (::Type{Param{T}})(x::Real) where T <: Real = T(x) # functor to convert objects of type `T <: Real` to `Param{T}`
 
+# TODO: this is pointless since Particles <: Real - intended safegaurding is probably not happening
 VecRealOrParticles{T, N} = Union{Vector{T}, Vector{Particles{T, N}}} where {T <: Real, N}
 
 #= Misc methods =#
 
 """
 Convert all values of a tuple `t` to a given type. Returns a (named) tuple.
-
-Useful for enforcing 
 """
 convert_tuple(::T, t) where T <: Real = (;zip(keys(t), convert.(T, values(t)))...)
 

@@ -1,7 +1,7 @@
 
 export AbstractObservationModel
 export vecindex
-export observe_params, observation, observe_dist, joint_observe_dist, logpdf_particles, marginal_likelihood
+export observe_params, observation, observe_dist, joint_observe_dist, logpdf_particles, marginal_likelihood, obs_info_mat
 
 export PoissonRate, ℓ_ind_poisson, NConstVar
 
@@ -68,6 +68,8 @@ function ℓ_ind_poisson(λs, ks, ::Type{T}=Float64) where T
     f(λ, k) = -λ + k * log(λ) - convert(T, logfactorial(k))
     sum(f(t[1], t[2]) for t in zip(λs, ks))
 end
+
+obs_info_mat(m::PoissonRate, x) = Diagonal(m.η ./ x)
 
 """
 Normal observations with constant variance

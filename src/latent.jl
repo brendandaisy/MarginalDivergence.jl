@@ -59,6 +59,7 @@ end
 #     DDEProblem(de_func(m), init, h, ts, p; dekwargs...)
 # end
 
+# TODO: honestly, this shouldn't be the go to solve since it is making a new object. Not that big of a deal since have particles though
 function CommonSolve.solve(m::M; alg=Tsit5(), dekwargs...) where M <: AbstractLatentModel
     solve(de_problem(m; dekwargs...), alg)
 end
