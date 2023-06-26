@@ -11,7 +11,7 @@ using StatsFuns
 using ForwardDiff
 using LinearAlgebra
 
-export Param, VecRealOrParticles
+export Param
 
 """
 The `Param` type is a variable in dynamical system model. It may be a fixed or random variable of numerical precision `T <: Real`
@@ -20,8 +20,10 @@ Param{T} = Union{T, Particles{T}} where T <: Real
 
 (::Type{Param{T}})(x::Real) where T <: Real = T(x) # functor to convert objects of type `T <: Real` to `Param{T}`
 
-# TODO: this is pointless since Particles <: Real - intended safegaurding is probably not happening
-VecRealOrParticles{T, N} = Union{Vector{T}, Vector{Particles{T, N}}} where {T <: Real, N}
+"""
+Useful for getting a type `T` from outpout that could either be fixed or random
+"""
+VecRealOrParticles{T, N} = Union{Vector{T}, Vector{Particles{T, N}}} where {T, N}
 
 #= Misc methods =#
 

@@ -3,50 +3,46 @@ export AbstractObservationModel
 export vecindex
 export observe_params, observation, observe_dist, joint_observe_dist, logpdf_particles, marginal_likelihood, obs_info_mat
 
-export PoissonRate, ℓ_ind_poisson, NConstVar
-
-vecindex = MonteCarloMeasurements.vecindex
-
-## TODO I think this is still a work in progress; some tweaks look halfway done 3/20
-
-#= Generating particles from an observation process =#
-
-abstract type AbstractObservationModel{T} end
-
-# observation(::AbstractObservationModel, x) = error("`observe params` not implemented")
-# logpdf_particles(::AbstractObservationModel, x, data) = error("`logpdf_particles` not implemented")
-logpdf_particles(m::AbstractObservationModel, x::VecRealOrParticles, data::Matrix) = sum(logpdf_particles(m, x, data[:,i]) for i in 1:size(data, 2))
-
-observe_params(m::AbstractObservationModel, x, ts) = observe_params(m, x[ts])
-
-observe_dist(::AbstractObservationModel, x::Vector{<:Particles}) = error("currently only scalar x supported")
-
-# TODO: particle x - what is the correct way? marginalize (how to correctly?)
-function observe_dist(m::AbstractObservationModel, x::Vector{<:Real})
-    obs_p = observe_params(m, x)
-    map(t->observation(m, t...), values(obs_p)...)
-end
-
-observe_dist(m, x, nreps) = stack(fill(observe_dist(m, x), nreps))
-
-function joint_observe_dist(m::AbstractObservationModel, x::VecRealOrParticles)
-    product_distribution(observe_dist(m, x))
-end
-
-joint_observe_dist(m, x, nreps) = fill(joint_observe_dist(m, x), nreps)
-
-# _marg_obs_param(x) = Float64.(x) # default no marginalization (when x is fixed vector)
-# _marg_obs_param(x::Vector{<:Particles}) = Float64.(pmean.(x)) # convert because rand may not work otherwise
+export PoissonRate, NConstVar
 
 """
-Compute the (log) marginal likelihood log(p(y | d)) using precomputed likelihood distributions or from calling `likelihood` on each `sim`
+Objects using the AbstractObservationModel interface should implement the functions
+- `logpdf_particles` gives the log likelihood of `data` for each particle. If the observation model contains particles as well,
+they are propogated jointly with μ
+- `observe_dist` gives a vector of `Distribution`s corresponding to the likelihood of a deterministic μ. If μ contains particles, 
+`observe_dist` will be called with each mean with a warning
+
+Implementing this interface then gives method extensions for multiple replications (adding `nreps` and supporting data as Matrix),
+in addition to giving required ingredients for the RMD
+"""
+abstract type AbstractObservationModel{T} end
+
+#= Method extensions =#
+logpdf_particles(m::AbstractObservationModel, μ, data::Matrix) = sum(logpdf_particles(m, μ, data[:,i]) for i in 1:size(data, 2))
+
+function observe_dist(m::AbstractObservationModel, μ::Vector{<:Particles})
+    @warn "Non-fixed μ. Using mean of partciles instead"
+    observe_dist(m, pmean.(μ))
+end
+
+observe_dist(m, μ, nreps) = stack(fill(observe_dist(m, μ), nreps))
+
+function joint_observe_dist(m::AbstractObservationModel, μ)
+    product_distribution(observe_dist(m, μ))
+end
+
+joint_observe_dist(m, μ, nreps) = fill(joint_observe_dist(m, μ), nreps)
+
+#TODO move these?
+"""
+Compute the (log) marginal likelihood log(p(y)) using precomputed likelihood distributions
 """
 function marginal_likelihood(log_lik::Particles{T, N}) where {T, N}
     m = convert(T, N)
     -log(m) + logsumexp(log_lik.particles)
 end
 
-# for the case when nothing is marginalized (TODO not very good naming convention...)
+# for the case when nothing is marginalized
 marginal_likelihood(log_lik::AbstractFloat) = log_lik
 
 #= Pre-provided Observation Models =#
@@ -60,13 +56,14 @@ struct PoissonRate{T} <: AbstractObservationModel{T}
     η::Param{T}
 end
 
-observation(::PoissonRate, λ) = Poisson(λ)
-observe_params(m::PoissonRate, x::VecRealOrParticles) = (λ=x * m.η,)
-logpdf_particles(m::PoissonRate, x::VecRealOrParticles{T, N}, data::Vector) where {T, N} = ℓ_ind_poisson(observe_params(m, x).λ, data, T)
+function observe_dist(m::PoissonRate, μ)
+    Poisson.(m.η * μ)
+end
 
-function ℓ_ind_poisson(λs, ks, ::Type{T}=Float64) where T
+function logpdf_particles(m::PoissonRate, μ::VecRealOrParticles{T, N}, data::Vector) where {T, N}
     f(λ, k) = -λ + k * log(λ) - convert(T, logfactorial(k))
-    sum(f(t[1], t[2]) for t in zip(λs, ks))
+    λs = m.η * μ
+    sum(f(t[1], t[2]) for t in zip(λs, data))
 end
 
 obs_info_mat(m::PoissonRate, x) = Diagonal(m.η ./ x)
@@ -78,12 +75,10 @@ struct NConstVar{T} <:AbstractObservationModel{T}
     σ²::Param{T}
 end
     
-observation(m::NConstVar, μ) = Normal(μ, m.σ²)
-observe_params(m::NConstVar, x::VecRealOrParticles) = (μ=x,)
+observe_dist(m::NConstVar, μ) = Normal.(μ, m.σ²)
 
-function logpdf_particles(m::NConstVar, x::VecRealOrParticles{T, N}, data::Vector) where {T, N}
-    μvec = observe_params(m, x)
-    -length(y) / 2 * (log(2π) + log(m.σ²)) - (0.5/m.σ²) * sum((μvec .- data).^2)
+function logpdf_particles(m::NConstVar, μ::VecRealOrParticles{T, N}, data::Vector) where {T, N}
+    -length(data) / 2 * (log(2π) + log(m.σ²)) - (0.5/m.σ²) * sum((μ .- data).^2)
 end
 
 # function ℓ_force_particles(p::AbstractArray{Particles{T, N}}, data, dfunc; joint=true) where {T, N}

@@ -1,4 +1,6 @@
 # Testing accuracy and speed of Monte Carlo estimation of marginal likelihood
+# TODO: I'd like this to include several available approximation methods, and 1-2 models
+# (including the available MC options from MCM)
 
 ```julia
 using Pkg

@@ -2,14 +2,26 @@ using Revise
 using Test
 using MarginalDivergence
 using MonteCarloMeasurements, Distributions
+using Random
+
+struct Coins <: AbstractObservationModel{Bool} end
+    
+function MarginalDivergence.logpdf_particles(::Coins, x::Vector{<:Real}, data)
+    sum(t->t[2]*log(t[1]) + (1 - t[2])*log(1-t[1]), zip(x, data))
+end
+MarginalDivergence.observe_dist(::Coins; p) = product_distribution(Bernoulli.(p))
+
+@testset "ObervationModel interface" begin
+    ptrue = [0, 0.5]
+
+
+    # check observe_dist with particle p uses mean of p with warning
+    @test_warn y = observe_dist(om, p)
+    @test y ...
+end
 
 @testset "Biased Coins" begin
-    struct Coins <: AbstractObservationModel{Int8} end
     
-    function MarginalDivergence.logpdf_particles(::Coins, x::Vector{<:Real}, data)
-        sum(t->t[2]*log(t[1]) + (1 - t[2])*log(1-t[1]), zip(x, data))
-    end
-    MarginalDivergence.observe_dist(::Coins; p) = product_distribution(Bernoulli.(p))
 
     om = Coins()
     x = outer_product(fill(Uniform(0, 1), 2), 10_000)
@@ -29,7 +41,8 @@ using MonteCarloMeasurements, Distributions
     @test md ≈ (log(1/2) - log(1/4))
 end
 
-# TODODODODODO
+## TODODODODODO lots of these could be simplified / removed
+
 @testset "Propogating uncertainty from observation process works as expected" begin
     x = [1, 2, 3] .± 0.3
     y = (100..200) * x
@@ -65,7 +78,7 @@ end
     @test md isa Float32
 end
 
-@testset "Sanity checks with SIR model and marginal divergence" begin
+@testset "SIR model and marginal divergence runs as expected" begin
     m = SIRModel(S₀=0..1, β=Particles(TruncatedNormal(0.3, 0.1, 0, Inf)))
     inf = solve(m; save_idxs=2, saveat=1).u
     om = PoissonRate(100)
