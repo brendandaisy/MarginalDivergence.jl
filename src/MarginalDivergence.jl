@@ -11,7 +11,7 @@ using StatsFuns
 using ForwardDiff
 using LinearAlgebra
 
-export Param
+export Param, particles_index
 
 """
 The `Param` type is a variable in dynamical system model. It may be a fixed or random variable of numerical precision `T <: Real`
@@ -20,12 +20,13 @@ Param{T} = Union{T, Particles{T}} where T <: Real
 
 (::Type{Param{T}})(x::Real) where T <: Real = T(x) # functor to convert objects of type `T <: Real` to `Param{T}`
 
-"""
-Useful for getting a type `T` from outpout that could either be fixed or random
-"""
-VecRealOrParticles{T, N} = Union{Vector{T}, Vector{Particles{T, N}}} where {T, N}
-
 #= Misc methods =#
+"""
+Get the `i`th particle from each particle distribution in an array
+
+Multiple indexing is not supported
+"""
+particles_index(p, i::Int) = MonteCarloMeasurements.vecindex(p, i)
 
 """
 Convert all values of a tuple `t` to a given type. Returns a (named) tuple.

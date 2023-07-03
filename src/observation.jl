@@ -1,16 +1,17 @@
 
 export AbstractObservationModel
-export vecindex
-export observe_params, observation, observe_dist, joint_observe_dist, logpdf_particles, marginal_likelihood, obs_info_mat
+export observe_params, observation, observe_dist, joint_observe_dist, logpdf_particles, log_likelihood, obs_info_mat
 
 export PoissonRate, NConstVar
+
+# TODO 6/20/23: it would be nice to have a "ragged replications" way to work similar to nreps but with diff. number of reps per design point
 
 """
 Objects using the AbstractObservationModel interface should implement the functions
 - `logpdf_particles` gives the log likelihood of `data` for each particle. If the observation model contains particles as well,
-they are propogated jointly with μ
-- `observe_dist` gives a vector of `Distribution`s corresponding to the likelihood of a deterministic μ. If μ contains particles, 
-`observe_dist` will be called with each mean with a warning
+they are propogated jointly with μ. Note that you may just be able to use `logpdf` from `Distributions.jl` depending on your likelihood function,
+although it will probably be slower
+- `observe_dist` gives a vector of `Distribution`s corresponding to the likelihood of a true process μ
 
 Implementing this interface then gives method extensions for multiple replications (adding `nreps` and supporting data as Matrix),
 in addition to giving required ingredients for the RMD
@@ -18,12 +19,13 @@ in addition to giving required ingredients for the RMD
 abstract type AbstractObservationModel{T} end
 
 #= Method extensions =#
-logpdf_particles(m::AbstractObservationModel, μ, data::Matrix) = sum(logpdf_particles(m, μ, data[:,i]) for i in 1:size(data, 2))
+log_likelihood(m, μ, data) = logpdf_particles(m, μ, data)
+log_likelihood(m::AbstractObservationModel, μ, data::Matrix) = sum(logpdf_particles(m, μ, data[:,i]) for i in 1:size(data, 2))
 
-function observe_dist(m::AbstractObservationModel, μ::Vector{<:Particles})
-    @warn "Non-fixed μ. Using mean of partciles instead"
-    observe_dist(m, pmean.(μ))
-end
+# function _observe_dist(m::AbstractObservationModel, μ::Vector{<:Particles})
+#     @warn "Non-fixed μ. Using mean of partciles instead"
+#     observe_dist(m, pmean.(μ))
+# end
 
 observe_dist(m, μ, nreps) = stack(fill(observe_dist(m, μ), nreps))
 
@@ -31,19 +33,7 @@ function joint_observe_dist(m::AbstractObservationModel, μ)
     product_distribution(observe_dist(m, μ))
 end
 
-joint_observe_dist(m, μ, nreps) = fill(joint_observe_dist(m, μ), nreps)
-
-#TODO move these?
-"""
-Compute the (log) marginal likelihood log(p(y)) using precomputed likelihood distributions
-"""
-function marginal_likelihood(log_lik::Particles{T, N}) where {T, N}
-    m = convert(T, N)
-    -log(m) + logsumexp(log_lik.particles)
-end
-
-# for the case when nothing is marginalized
-marginal_likelihood(log_lik::AbstractFloat) = log_lik
+joint_observe_dist(m, μ, nreps) = product_distribution(observe_dist(m, μ, nreps))
 
 #= Pre-provided Observation Models =#
   
@@ -60,7 +50,7 @@ function observe_dist(m::PoissonRate, μ)
     Poisson.(m.η * μ)
 end
 
-function logpdf_particles(m::PoissonRate, μ::VecRealOrParticles{T, N}, data::Vector) where {T, N}
+function logpdf_particles(m::PoissonRate, μ::Vector{<:Param{T}}, data::Vector) where {T}
     f(λ, k) = -λ + k * log(λ) - convert(T, logfactorial(k))
     λs = m.η * μ
     sum(f(t[1], t[2]) for t in zip(λs, data))
@@ -75,11 +65,13 @@ struct NConstVar{T} <:AbstractObservationModel{T}
     σ²::Param{T}
 end
     
-observe_dist(m::NConstVar, μ) = Normal.(μ, m.σ²)
+observe_dist(m::NConstVar, μ) = Normal.(μ, sqrt(m.σ²))
 
-function logpdf_particles(m::NConstVar, μ::VecRealOrParticles{T, N}, data::Vector) where {T, N}
-    -length(data) / 2 * (log(2π) + log(m.σ²)) - (0.5/m.σ²) * sum((μ .- data).^2)
+function logpdf_particles(m::NConstVar, μ::Vector{<:Param{T}}, data::Vector) where T
+    -length(data) / convert(T, 2) * (log(convert(T, 2π)) + log(m.σ²)) - (convert(T, 0.5)/m.σ²) * sum((μ .- data).^2)
 end
+
+# TODO: implement logistic regression model "Logistic"
 
 # function ℓ_force_particles(p::AbstractArray{Particles{T, N}}, data, dfunc; joint=true) where {T, N}
 #     if joint

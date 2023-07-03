@@ -5,19 +5,24 @@ using Distributions, MonteCarloMeasurements
 # using DelayDiffEq, OrdinaryDiffEq
 
 @testset "AbstractLatentModel general interface" begin
-    struct EmptyModel{T<:Real} <: AbstractLatentModel{T}
+    struct EmptyModel{T<:Real} <: ODEModel{T}
         t₀::Param{T}
         T::Param{T}
         a::Param{T}
     end
 
-    timespan(m::EmptyModel) = (m.t₀, m.T)
+    MarginalDivergence.timespan(m::EmptyModel) = (m.t₀, m.T)
     
     mod = EmptyModel(0., 1. ± 0.1, 1.0)
     @test mod isa AbstractLatentModel{Float64}
     @test mod.T isa Param
     @test timespan(mod) isa Tuple{Float64, Particles}
     @test_throws ErrorException initial_values(mod)
+
+    MarginalDivergence.initial_values(m::EmptyModel) = (m.a,)
+    @test initial_values(mod) == (1.0,)
+
+    @test_throws ErrorException de_problem(mod; dense=true) # no parameters or de_func have been provided
 end
 
 ## Setup
@@ -30,6 +35,10 @@ sir1 = SIRModel{Float32}(S₀=0f0..1f0, β=Particles(TruncatedNormal(0.3f0, 0.1f
     @test eltype(vars) <: Particles{Float32}
     @test length(peak_random_vars(sir0)) == 0
     @test allfixed(sir0) & !allfixed(sir1)
+
+    μ = [1, 2, 3] ± 0.1
+    @test particles_index(μ, 3) == [u.particles[3] for u in μ]
+    @test_throws MethodError particles_index(μ, 1:3) # multiple indexing is not implemented
 end
 
 @testset "SIR implementation" begin
