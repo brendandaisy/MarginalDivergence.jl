@@ -1,43 +1,9 @@
-# MarginalDivergence.jl
-
-WIP A Bayesian method for Practical Identifiability of differential equation and other models
-
-## Installation
-
-Using Pkg mode, simply
-
-```
-add https://github.com/brendandaisy/MarginalDivergence.jl
-```
-
-to create a static installation or use `dev` to clone a version you can edit.
-
-Check the package is loaded by typing `st` in Pkg model. To test everything is working:
-
-```
-test MarginalDivergence
-```
-
-To update to the latest version, simply
-```
-update MarginalDivergence
-```
-
-## Dependencies
-
-Currently, getting full use of this package requires use of the unregistered `ConditionalTransform`, which is used to get samples
-from the conditional distribution $P(\theta \mid u)$ for arbitrary $u$. That package is ![here](https://github.com/brendandaisy/ConditionalTransform.jl). 
-
-## Examples
 
 ```julia
 using MarginalDivergence
 using Distributions, MonteCarloMeasurements
 using Parameters
 ```
-
-
-
 
 ### Define the latent process
 
@@ -56,14 +22,6 @@ function sis!(dx, x, p, t)
 end
 ```
 
-```
-sis! (generic function with 1 method)
-```
-
-
-
-
-
 These should be implemented in the same way as in `DifferentialEquations.jl`. Now we implement our model object,
 which stores the parameters, timespan, etc, as well as complete the `ODEModel` interface.
 
@@ -81,9 +39,6 @@ MarginalDivergence.initial_values(m::SISModel) = [m.I₀]
 MarginalDivergence.parameters(m::SISModel) = [m.β, m.α]
 MarginalDivergence.de_func(::SISModel) = sis!
 ```
-
-
-
 And we're all set. Define an instance of the model with uncertain $\beta$ and $\alpha$, seeing data only up to $T=10$.
 
 ```julia
@@ -91,50 +46,12 @@ mod = SISModel(β=0..1, α=0.1..0.5)
 sol = solve(mod; saveat=0:10, save_idxs=1).u
 ```
 
-```
-11-element Vector{Particles{Float64, 2000}}:
- 0.01
- 0.0127 ± 0.0039
- 0.0175 ± 0.011
- 0.0258 ± 0.023
- 0.0393 ± 0.044
- 0.0594 ± 0.077
- 0.0858 ± 0.12
- 0.116 ± 0.16
- 0.146 ± 0.2
- 0.174 ± 0.23
- 0.198 ± 0.25
-```
-
-
-
-
-
 To compute the RMD of $\beta$, we also simulate the model holding $\beta$ fixed to the "true" value.
 
 ```julia
 θtrue = (β=0.7, α=0.2)
 sol_restr = solve(mod, (β=0.7,); saveat=0:10, save_idxs=1).u
 ```
-
-```
-11-element Vector{Particles{Float64, 2000}}:
- 0.01
- 0.0149 ± 0.0017
- 0.0224 ± 0.0051
- 0.0337 ± 0.011
- 0.0508 ± 0.022
- 0.0758 ± 0.039
- 0.111 ± 0.065
- 0.156 ± 0.098
- 0.208 ± 0.13
- 0.265 ± 0.17
- 0.319 ± 0.2
-```
-
-
-
-
 
 Finally, we need to define the observation process, here using the provided Gaussian noise model, and get the Distribution
 of the data.
@@ -146,33 +63,7 @@ sol_true = solve(mod, θtrue; saveat=0:10, save_idxs=1).u
 ytrue = observe_dist(obs_mod, sol_true)
 ```
 
-```
-11-element Vector{Normal{Float64}}:
- Normal{Float64}(μ=0.01, σ=0.1)
- Normal{Float64}(μ=0.016338818919136543, σ=0.1)
- Normal{Float64}(μ=0.02654426937177269, σ=0.1)
- Normal{Float64}(μ=0.04273385817344045, σ=0.1)
- Normal{Float64}(μ=0.06782393946706626, σ=0.1)
- Normal{Float64}(μ=0.10533481065432604, σ=0.1)
- Normal{Float64}(μ=0.15850378577161595, σ=0.1)
- Normal{Float64}(μ=0.22844561737900243, σ=0.1)
- Normal{Float64}(μ=0.31192175591246146, σ=0.1)
- Normal{Float64}(μ=0.40075126698866187, σ=0.1)
- Normal{Float64}(μ=0.48437783675404145, σ=0.1)
-```
-
-
-
-
-
 And we get the RMD, approximating with 100 outer product steps (in practice, $N$ and $M$ should probably be much larger)
 ```julia
 marginal_divergence(ytrue, sol_restr, sol, obs_mod; N=100)
 ```
-
-```
-0.8384965917102682
-```
-
-
-Additional examples can be found in the test folder.

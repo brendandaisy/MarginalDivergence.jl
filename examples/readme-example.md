@@ -1,35 +1,3 @@
-# MarginalDivergence.jl
-
-WIP A Bayesian method for Practical Identifiability of differential equation and other models
-
-## Installation
-
-Using Pkg mode, simply
-
-```
-add https://github.com/brendandaisy/MarginalDivergence.jl
-```
-
-to create a static installation or use `dev` to clone a version you can edit.
-
-Check the package is loaded by typing `st` in Pkg model. To test everything is working:
-
-```
-test MarginalDivergence
-```
-
-To update to the latest version, simply
-```
-update MarginalDivergence
-```
-
-## Dependencies
-
-Currently, getting full use of this package requires use of the unregistered `ConditionalTransform`, which is used to get samples
-from the conditional distribution $P(\theta \mid u)$ for arbitrary $u$. That package is ![here](https://github.com/brendandaisy/ConditionalTransform.jl). 
-
-## Examples
-
 ```julia
 using MarginalDivergence
 using Distributions, MonteCarloMeasurements
@@ -175,4 +143,3 @@ marginal_divergence(ytrue, sol_restr, sol, obs_mod; N=100)
 ```
 
 
-Additional examples can be found in the test folder.

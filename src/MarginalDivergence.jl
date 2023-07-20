@@ -10,6 +10,7 @@ using IterTools
 using StatsFuns
 using ForwardDiff
 using LinearAlgebra
+using KissMCMC
 
 export Param, particles_index
 

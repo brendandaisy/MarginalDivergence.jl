@@ -2,9 +2,26 @@ using Test
 using Revise
 using MarginalDivergence
 using Distributions, MonteCarloMeasurements
+
 # using DelayDiffEq, OrdinaryDiffEq
 
-@testset "AbstractLatentModel general interface" begin
+@testset "GenericModel general interface" begin
+    struct MyModel{T<:Real} <: GenericModel{T}
+        a::Param{T}
+        b::Param{T}
+    end
+
+    MarginalDivergence.solve(m::MyModel) = m.a * m.b
+    
+    m = MyModel(1f0 ± 0.1f0, 2f0)
+    @test m isa AbstractLatentModel
+    @test m isa GenericModel{Float32}
+
+    sol = solve(m)
+    @test isapprox(pmean(sol), 2f0; atol=0.1)
+end
+
+@testset "DiffEqModel general interface" begin
     struct EmptyModel{T<:Real} <: ODEModel{T}
         t₀::Param{T}
         T::Param{T}

@@ -1,16 +1,31 @@
-export AbstractLatentModel, ODEModel, DDEModel
+export AbstractLatentModel, GenericModel, DiffEqModel, ODEModel, DDEModel
 export peak_random_vars, allfixed, resample
 export timespan, initial_values, parameters, hist_func, de_func, de_problem, solve
 
 abstract type AbstractLatentModel{T} end
-abstract type ODEModel{T} <: AbstractLatentModel{T} end
-abstract type DDEModel{T} <: AbstractLatentModel{T} end
 
-#= Fallback methods for AbstractLatentModel interface =#
-timespan(::AbstractLatentModel) = error("timespan function not implemented")
-initial_values(::AbstractLatentModel) = error("initial_values function not implemented")
-parameters(::AbstractLatentModel) = error("parameters function not implemented")
-de_func(::AbstractLatentModel) = error("de_func function not implemented")
+#=
+Interface 1: Generic models
+requires implementing a `solve` function which is entirely responsible with creating
+sensible output from the struct's values
+=#
+abstract type GenericModel{T} <: AbstractLatentModel{T} end
+
+#=
+Interface 2: Differential equation models
+requires implementing at least `timespan` `initial_values` `parameters` and `de_func` which point 
+to the relavent componenets of DifferentialEquations.jl's implementation. 
+The `solve` method as well as some other helpers are then inherited
+=#
+abstract type DiffEqModel{T} <: AbstractLatentModel{T} end
+abstract type ODEModel{T} <: DiffEqModel{T} end
+abstract type DDEModel{T} <: DiffEqModel{T} end
+
+#= Fallback methods for DiffEqModel interface =#
+timespan(::DiffEqModel) = error("timespan function not implemented")
+initial_values(::DiffEqModel) = error("initial_values function not implemented")
+parameters(::DiffEqModel) = error("parameters function not implemented")
+de_func(::DiffEqModel) = error("de_func function not implemented")
 hist_func(::DDEModel) = error("hist_func function not implemented")
 
 """
@@ -40,7 +55,7 @@ function resample(lm::LM, n) where LM <: AbstractLatentModel
 end
 
 """
-Conveniently produce an `ODEProblem` from `m` by automatically matching `initial_values`, `timespan` which can be solved, etc.
+Produce an `ODEProblem` from `m` by automatically matching `initial_values`, `timespan` which can be solved, etc.
 
 Using `solve(::AbstractLatentModel, ...)` directly is preferred
 """
@@ -51,16 +66,22 @@ function de_problem(m::ODEModel; dekwargs...)
     ODEProblem(de_func(m), init, ts, p; dekwargs...)
 end
 
-# function de_problem(m::DDEModel; dekwargs...)
-#     init = initial_values(m)
-#     ts = timespan(m)
-#     p = parameters(m)
-#     h = hist_func(m)
-#     DDEProblem(de_func(m), init, h, ts, p; dekwargs...)
-# end
+function de_problem(m::DDEModel; dekwargs...)
+    init = initial_values(m)
+    ts = timespan(m)
+    p = parameters(m)
+    h = hist_func(m)
+    DDEProblem(de_func(m), init, h, ts, p; dekwargs...)
+end
 
-# TODO: honestly, this shouldn't be the go to solve since it is making a new object. Not that big of a deal since have particles though
-function CommonSolve.solve(m::M; alg=Tsit5(), dekwargs...) where M <: AbstractLatentModel
+function CommonSolve.solve(m::LM, θnew::NamedTuple; kwargs...) where LM <: GenericModel
+    props = properties(m) |> collect
+    θrest = filter(tup -> tup[1] ∉ keys(θnew), props) |> NamedTuple
+    mnew = LM(;θnew..., θrest...)
+    solve(mnew; kwargs...)
+end
+
+function CommonSolve.solve(m::LM; alg=Tsit5(), dekwargs...) where LM <: DiffEqModel
     solve(de_problem(m; dekwargs...), alg)
 end
 
@@ -69,10 +90,10 @@ Return a solution to the latent model, where parameters in `θnew` replace the e
 
 This is useful, e.g. for quickly solving a version of the model where all params have been fixed.
 """
-function CommonSolve.solve(m::M, θnew::NamedTuple; alg=Tsit5(), dekwargs...) where M <: AbstractLatentModel
+function CommonSolve.solve(m::LM, θnew::NamedTuple; alg=Tsit5(), dekwargs...) where LM <: DiffEqModel
     # θnew = convert_tuple(m.start, θnew)
     props = properties(m) |> collect
     θrest = filter(tup->tup[1] ∉ keys(θnew), props) |> NamedTuple
-    mnew = M(;θnew..., θrest...)
+    mnew = LM(;θnew..., θrest...)
     solve(de_problem(mnew; dekwargs...), alg)
 end

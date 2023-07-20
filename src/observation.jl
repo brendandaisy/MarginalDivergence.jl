@@ -20,7 +20,7 @@ abstract type AbstractObservationModel{T} end
 
 #= Method extensions =#
 log_likelihood(m, μ, data) = logpdf_particles(m, μ, data)
-log_likelihood(m::AbstractObservationModel, μ, data::Matrix) = sum(logpdf_particles(m, μ, data[:,i]) for i in 1:size(data, 2))
+log_likelihood(m::AbstractObservationModel, μ, data::AbstractMatrix) = sum(logpdf_particles(m, μ, data[:,i]) for i in 1:size(data, 2))
 
 # function _observe_dist(m::AbstractObservationModel, μ::Vector{<:Particles})
 #     @warn "Non-fixed μ. Using mean of partciles instead"
@@ -56,7 +56,7 @@ function logpdf_particles(m::PoissonRate, μ::Vector{<:Param{T}}, data::Vector) 
     sum(f(t[1], t[2]) for t in zip(λs, data))
 end
 
-obs_info_mat(m::PoissonRate, x) = Diagonal(m.η ./ x)
+obs_info_mat(m::PoissonRate, μ) = Diagonal(m.η ./ μ)
 
 """
 Normal observations with constant variance
